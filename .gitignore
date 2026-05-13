@@ -1,0 +1,100 @@
+# ------------------------------------------------------------------
+# .gitignore for TI Code Composer Studio (Theia) / AM2612 dual-core
+# ------------------------------------------------------------------
+
+# --- Build output directories (per-project) -----------------------
+**/Debug/
+**/Release/
+**/debug/
+**/release/
+
+# --- Compiler / linker artifacts ----------------------------------
+*.o
+*.obj
+*.lst
+*.d
+*.dep
+*.pp
+*.opt
+*.su
+*.map
+*.out
+*.elf
+*.mcelf
+*.mcelf_xip
+*.hex
+*.bin
+*.appimage
+*.tiimage
+*.rprc
+*.xip
+*.ihex
+*.s19
+*.srec
+*.lib
+*.a
+*.so
+*.dll
+*.exe
+
+# Link info & generated build files
+*_linkInfo.xml
+ccsObjs.opt
+sources.mk
+subdir_rules.mk
+subdir_vars.mk
+objects.mk
+
+# --- SysConfig generated sources ----------------------------------
+# Keep the *.syscfg input file; ignore generated output trees.
+**/syscfg/
+**/Debug/syscfg/
+**/Release/syscfg/
+syscfg_c.rov.xs.bak
+
+# --- Theia / Eclipse / CCS IDE state ------------------------------
+# Keep .project, .cproject, .ccsproject, .clangd, targetConfigs/, *.syscfg
+# (these are needed by anyone importing the project)
+.theia/launch.json.bak
+.theia/*.log
+.metadata/
+.recommenders/
+RemoteSystemsTempFiles/
+.settings/org.eclipse.core.resources.prefs
+*.launch
+*.bak
+*.bak[0-9]*
+*~
+
+# --- VS Code / generic editor -------------------------------------
+.vscode/
+*.code-workspace.bak
+
+# --- Logs, temp & swap files --------------------------------------
+*.log
+*.tlog
+*.tmp
+*.temp
+*.swp
+*.swo
+*.orig
+*.rej
+*.pyc
+__pycache__/
+
+# --- OS-specific --------------------------------------------------
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.fuse_hidden*
+.Trash-*

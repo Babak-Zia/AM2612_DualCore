@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 4.0.0?><cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
+    <storageModule moduleId="org.eclipse.cdt.core.settings">
+        <cconfiguration id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.766755596">
+            <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.766755596" moduleId="org.eclipse.cdt.core.settings" name="Debug">
+                <macros>
+                    <stringMacro name="MCU_PLUS_SDK_PATH" type="VALUE_PATH_ANY" value="${COM_TI_MCU_PLUS_SDK_AM261X_INSTALL_DIR}"/>
+                </macros>
+                <externalSettings/>
+                <extensions>
+                    <extension id="com.ti.ccs.errorparser.SysConfigErrorParser" point="com.ti.ccs.project.ErrorParser"/>
+                </extensions>
+            </storageModule>
+            <storageModule moduleId="cdtBuildSystem" version="4.0.0">
+                <configuration artifactName="${ProjName}" buildProperties="" cleanCommand="${CG_CLEAN_CMD}" description="" id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.766755596" name="Debug" parent="com.ti.ccstudio.buildDefinitions.TMS470.Debug">
+                    <folderInfo id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.766755596." name="/" resourcePath="">
+                        <toolChain id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.DebugToolchain.475699262" name="TI Build Tools" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.DebugToolchain" targetTool="com.ti.ccstudio.buildDefinitions.sysConfig.1866674832">
+                            <option id="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS.952538461" superClass="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS" valueType="stringList">
+                                <listOptionValue value="DEVICE_CONFIGURATION_ID=Cortex R.AM261x"/>
+                                <listOptionValue value="DEVICE_CORE_ID="/>
+                                <listOptionValue value="CCS_MBS_VERSION=70.0.0"/>
+                                <listOptionValue value="OUTPUT_TYPE=system"/>
+                                <listOptionValue value="PRODUCTS=MCU-PLUS-SDK-AM261X:26.0.0.01;"/>
+                                <listOptionValue value="PRODUCT_MACRO_IMPORTS={&quot;MCU-PLUS-SDK-AM261X&quot;:[&quot;${COM_TI_MCU_PLUS_SDK_AM261X_INCLUDE_PATH}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AM261X_LIBRARY_PATH}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AM261X_LIBRARIES}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AM261X_SYMBOLS}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AM261X_SYSCONFIG_MANIFEST}&quot;]}"/>
+                            </option>
+                            <option id="com.ti.ccstudio.buildDefinitions.core.OPT_CODEGEN_VERSION.1708979561" superClass="com.ti.ccstudio.buildDefinitions.core.OPT_CODEGEN_VERSION" value="TICLANG_4.0.4.LTS" valueType="string"/>
+                            <targetPlatform id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.targetPlatformDebug.705144226" name="Platform" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.targetPlatformDebug"/>
+                            <builder buildPath="${BuildDirectory}" id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.builderDebug.329442855" name="GNU Make.Debug" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.builderDebug"/>
+                            <tool id="com.ti.ccstudio.buildDefinitions.sysConfig.1866674832" name="SysConfig" superClass="com.ti.ccstudio.buildDefinitions.sysConfig">
+                                <option id="com.ti.ccstudio.buildDefinitions.sysConfig.CONTEXT.2024142699" superClass="com.ti.ccstudio.buildDefinitions.sysConfig.CONTEXT" value="system" valueType="string"/>
+                                <option id="com.ti.ccstudio.buildDefinitions.sysConfig.PRODUCTS.481148333" superClass="com.ti.ccstudio.buildDefinitions.sysConfig.PRODUCTS" valueType="stringList">
+                                    <listOptionValue value="${COM_TI_MCU_PLUS_SDK_AM261X_SYSCONFIG_MANIFEST}"/>
+                                </option>
+                            </tool>
+                            <tool id="com.ti.ccstudio.buildDefinitions.optiShare.396274703" name="OptiShare" superClass="com.ti.ccstudio.buildDefinitions.optiShare">
+                                <option id="com.ti.ccstudio.buildDefinitions.optiShare.OUTPUT_FILE.738057408" superClass="com.ti.ccstudio.buildDefinitions.optiShare.OUTPUT_FILE" value="${ProjName}.out" valueType="string"/>
+                                <option id="com.ti.ccstudio.buildDefinitions.optiShare.MAP_FILE.2031705501" superClass="com.ti.ccstudio.buildDefinitions.optiShare.MAP_FILE" value="${ProjName}.map" valueType="string"/>
+                                <option id="com.ti.ccstudio.buildDefinitions.optiShare.CMD_FILE.361114680" superClass="com.ti.ccstudio.buildDefinitions.optiShare.CMD_FILE" value="${ProjName}.cmd" valueType="string"/>
+                                <option id="com.ti.ccstudio.buildDefinitions.optiShare.INFO_TABLE.627361703" superClass="com.ti.ccstudio.buildDefinitions.optiShare.INFO_TABLE" value="${ProjName}.info" valueType="string"/>
+                                <option id="com.ti.ccstudio.buildDefinitions.optiShare.OPTIMIZED_OUTPUT_FILE.312373257" superClass="com.ti.ccstudio.buildDefinitions.optiShare.OPTIMIZED_OUTPUT_FILE" value="${ProjName}_optishare.out" valueType="string"/>
+                                <option id="com.ti.ccstudio.buildDefinitions.optiShare.OPTIMIZED_LINK_INFO_FILE.2051379888" superClass="com.ti.ccstudio.buildDefinitions.optiShare.OPTIMIZED_LINK_INFO_FILE" value="${ProjName}_linkInfo_optishare.xml" valueType="string"/>
+                            </tool>
+                        </toolChain>
+                    </folderInfo>
+                </configuration>
+            </storageModule>
+            <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+        </cconfiguration>
+        <cconfiguration id="com.ti.ccstudio.buildDefinitions.TMS470.Release.2098551108">
+            <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.ti.ccstudio.buildDefinitions.TMS470.Release.2098551108" moduleId="org.eclipse.cdt.core.settings" name="Release">
+                <macros>
+                    <stringMacro name="MCU_PLUS_SDK_PATH" type="VALUE_PATH_ANY" value="${COM_TI_MCU_PLUS_SDK_AM261X_INSTALL_DIR}"/>
+                </macros>
+                <externalSettings/>
+                <extensions>
+                    <extension id="com.ti.ccs.errorparser.SysConfigErrorParser" point="com.ti.ccs.project.ErrorParser"/>
+                </extensions>
+            </storageModule>
+            <storageModule moduleId="cdtBuildSystem" version="4.0.0">
+                <configuration artifactName="${ProjName}" buildProperties="" cleanCommand="${CG_CLEAN_CMD}" description="" id="com.ti.ccstudio.buildDefinitions.TMS470.Release.2098551108" name="Release" parent="com.ti.ccstudio.buildDefinitions.TMS470.Release">
+                    <folderInfo id="com.ti.ccstudio.buildDefinitions.TMS470.Release.2098551108." name="/" resourcePath="">
+                        <toolChain id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.ReleaseToolchain.929045649" name="TI Build Tools" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.ReleaseToolchain" targetTool="com.ti.ccstudio.buildDefinitions.sysConfig.962980361">
+                            <option id="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS.286940407" superClass="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS" valueType="stringList">
+                                <listOptionValue value="DEVICE_CONFIGURATION_ID=Cortex R.AM261x"/>
+                                <listOptionValue value="DEVICE_CORE_ID="/>
+                                <listOptionValue value="CCS_MBS_VERSION=70.0.0"/>
+                                <listOptionValue value="OUTPUT_TYPE=system"/>
+                                <listOptionValue value="PRODUCTS=MCU-PLUS-SDK-AM261X:26.0.0.01;"/>
+                                <listOptionValue value="PRODUCT_MACRO_IMPORTS={&quot;MCU-PLUS-SDK-AM261X&quot;:[&quot;${COM_TI_MCU_PLUS_SDK_AM261X_INCLUDE_PATH}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AM261X_LIBRARY_PATH}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AM261X_LIBRARIES}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AM261X_SYMBOLS}&quot;,&quot;${COM_TI_MCU_PLUS_SDK_AM261X_SYSCONFIG_MANIFEST}&quot;]}"/>
+                            </option>
+                            <option id="com.ti.ccstudio.buildDefinitions.core.OPT_CODEGEN_VERSION.1531545147" superClass="com.ti.ccstudio.buildDefinitions.core.OPT_CODEGEN_VERSION" value="TICLANG_4.0.4.LTS" valueType="string"/>
+                            <targetPlatform id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.targetPlatformRelease.365885444" name="Platform" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.targetPlatformRelease"/>
+                            <builder buildPath="${BuildDirectory}" id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.builderRelease.1620224247" name="GNU Make.Release" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.builderRelease"/>
+                            <tool id="com.ti.ccstudio.buildDefinitions.sysConfig.962980361" name="SysConfig" superClass="com.ti.ccstudio.buildDefinitions.sysConfig">
+                                <option id="com.ti.ccstudio.buildDefinitions.sysConfig.CONTEXT.1745109591" superClass="com.ti.ccstudio.buildDefinitions.sysConfig.CONTEXT" value="system" valueType="string"/>
+                                <option id="com.ti.ccstudio.buildDefinitions.sysConfig.PRODUCTS.1657300045" superClass="com.ti.ccstudio.buildDefinitions.sysConfig.PRODUCTS" valueType="stringList">
+                                    <listOptionValue value="${COM_TI_MCU_PLUS_SDK_AM261X_SYSCONFIG_MANIFEST}"/>
+                                </option>
+                            </tool>
+                            <tool id="com.ti.ccstudio.buildDefinitions.optiShare.1839024613" name="OptiShare" superClass="com.ti.ccstudio.buildDefinitions.optiShare">
+                                <option id="com.ti.ccstudio.buildDefinitions.optiShare.OUTPUT_FILE.1095006409" superClass="com.ti.ccstudio.buildDefinitions.optiShare.OUTPUT_FILE" value="${ProjName}.out" valueType="string"/>
+                                <option id="com.ti.ccstudio.buildDefinitions.optiShare.MAP_FILE.2100183983" superClass="com.ti.ccstudio.buildDefinitions.optiShare.MAP_FILE" value="${ProjName}.map" valueType="string"/>
+                                <option id="com.ti.ccstudio.buildDefinitions.optiShare.CMD_FILE.626508658" superClass="com.ti.ccstudio.buildDefinitions.optiShare.CMD_FILE" value="${ProjName}.cmd" valueType="string"/>
+                                <option id="com.ti.ccstudio.buildDefinitions.optiShare.INFO_TABLE.388464237" superClass="com.ti.ccstudio.buildDefinitions.optiShare.INFO_TABLE" value="${ProjName}.info" valueType="string"/>
+                                <option id="com.ti.ccstudio.buildDefinitions.optiShare.OPTIMIZED_OUTPUT_FILE.600586741" superClass="com.ti.ccstudio.buildDefinitions.optiShare.OPTIMIZED_OUTPUT_FILE" value="${ProjName}_optishare.out" valueType="string"/>
+                                <option id="com.ti.ccstudio.buildDefinitions.optiShare.OPTIMIZED_LINK_INFO_FILE.595686053" superClass="com.ti.ccstudio.buildDefinitions.optiShare.OPTIMIZED_LINK_INFO_FILE" value="${ProjName}_linkInfo_optishare.xml" valueType="string"/>
+                            </tool>
+                        </toolChain>
+                    </folderInfo>
+                </configuration>
+            </storageModule>
+            <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+        </cconfiguration>
+    </storageModule>
+    <storageModule moduleId="cdtBuildSystem" version="4.0.0">
+        <project id="System_DualCore.com.ti.ccstudio.buildDefinitions.TMS470.ProjectType.1074116794" name="TMS470" projectType="com.ti.ccstudio.buildDefinitions.TMS470.ProjectType"/>
+    </storageModule>
+</cproject>
