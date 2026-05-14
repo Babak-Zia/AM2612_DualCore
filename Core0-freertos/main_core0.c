@@ -45,11 +45,11 @@ StackType_t gMainTaskStack[MAIN_TASK_SIZE] __attribute__((aligned(32)));
 StaticTask_t gMainTaskObj;
 TaskHandle_t gMainTask;
 
-void ipc_spinlock_sharedmem_main(void *args);
+void ipc_master_run(void *args);
 
 void freertos_main(void *args)
 {
-    ipc_spinlock_sharedmem_main(NULL);
+    ipc_master_run(NULL);
 
     vTaskDelete(NULL);
 }

@@ -34,17 +34,16 @@
 #include "ti_drivers_config.h"
 #include "ti_board_config.h"
 
-void ipc_spinlock_sharedmem_main(void *args);
+void ipc_worker_run(void *args);
 
 int main(void)
 {
     System_init();
     Board_init();
 
-    ipc_spinlock_sharedmem_main(NULL);
-
-    Board_deinit();
-    System_deinit();
+    /* Worker enters an infinite service loop and never returns;
+     * Board_deinit/System_deinit below are intentionally unreachable. */
+    ipc_worker_run(NULL);
 
     return 0;
 }
