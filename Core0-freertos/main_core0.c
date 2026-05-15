@@ -45,11 +45,11 @@ StackType_t gMainTaskStack[MAIN_TASK_SIZE] __attribute__((aligned(32)));
 StaticTask_t gMainTaskObj;
 TaskHandle_t gMainTask;
 
-void ipc_master_run(void *args);
+void core0_app_run(void *args);
 
 void freertos_main(void *args)
 {
-    ipc_master_run(NULL);
+    core0_app_run(NULL);
 
     vTaskDelete(NULL);
 }

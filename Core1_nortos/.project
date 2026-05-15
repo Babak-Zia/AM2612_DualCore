@@ -23,6 +23,16 @@
 			<type>1</type>
 			<locationURI>MCU_PLUS_SDK_PATH/docs/api_guide_am261x/EXAMPLES_DRIVERS_IPC_SPINLOCK_SHAREDMEM.html</locationURI>
 		</link>
+		<link>
+			<name>common/ipc_channel.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/common/ipc_channel.c</locationURI>
+		</link>
+		<link>
+			<name>common/ipc_channel.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/common/ipc_channel.h</locationURI>
+		</link>
 	</linkedResources>
 	<variableList>
 		<variable>

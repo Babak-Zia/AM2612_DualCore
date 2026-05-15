@@ -14,17 +14,20 @@ AM2612_DualCore/
 ├── .gitignore                           Ignores Debug/, *.o, *.out, syscfg/, etc.
 ├── README.md                            this file
 │
+├── common/                              Shared transport (linked into both core projects)
+│   ├── ipc_channel.h / ipc_channel.c    **Production path** — zero-copy `gIpcCh` + IpcNotify
+│
 ├── Core0-freertos/                      Core 0 (R5F-0) - master, FreeRTOS
 │   ├── main_core0.c                     entry point + FreeRTOS task creation
-│   ├── ipc_pingpong.c                   IPC channel + master/worker logic
+│   ├── core0_app.c                      master loop, verify, logs, timing
 │   ├── example.syscfg                   SysConfig (drivers, MPU, FreeRTOS)
 │   ├── .project / .cproject / .ccsproject   CCS project descriptors
 │   ├── targetConfigs/                   debug probe config (XDS-class)
 │   └── Debug/                           (auto-generated build output, gitignored)
 │
 ├── Core1_nortos/                        Core 1 (R5F-1) - worker, NoRTOS
-│   ├── main_core1.c                     entry point - calls ipc_worker_run()
-│   ├── ipc_pingpong.c                   identical copy of the shared logic
+│   ├── main_core1.c                     entry point - calls core1_app_run()
+│   ├── core1_app.c                      worker loop + process_buffer swap-point
 │   ├── example.syscfg                   SysConfig for Core 1
 │   └── (mirrors Core0-freertos/ structure)
 │
@@ -33,7 +36,22 @@ AM2612_DualCore/
     └── makefile_system_ccs_bootimage_gen
 ```
 
-The `ipc_pingpong.c` file is byte-identical in both core projects. Each project's `main_*` calls only the half that applies to that core; the other half is compiled but unreferenced.
+`common/ipc_channel.c` is **linked** into both CCS projects (see `.project` → `linkedResources`).
+
+`core0_app.c` / `core1_app.c` use **`ipc_channel` only**: they read and write **`gIpcCh.req_buf` / `gIpcCh.resp_buf` directly** (no extra `memcpy` in the hot path). Doorbells use **`IPC_DOORBELL_SEND_FAST` (0)** from `ipc_channel.h` for minimum mailbox latency with **one transaction in flight** per direction; switch to **`IPC_DOORBELL_SEND_WAIT` (1)** if you pipeline multiple notifies and see drops.
+
+---
+
+## Performance choices (this project)
+
+| Choice | Why |
+|---|---|
+| **`ipc_channel` + in-place `gIpcCh` buffers** | Avoids copying the whole payload twice per round trip (the main cost the old helper layer added). |
+| **`IPC_DOORBELL_SEND_FAST`** | Skips the “wait for TX FIFO empty” spin in `IpcNotify_sendMsg` when the mailbox is not back-pressured — saves cycles on every transaction. |
+| **Non-cacheable `.bss.user_shared_mem`** | No `CacheP_*` in the loop; mandatory for correctness unless you move the section and add explicit cache ops. |
+| **Single in-flight request** | Keeps the worker’s single-slot `gWorkerNewReqSeq` model valid; do not start a new `send_request` before `wait_reply` completes unless you redesign for pipelining. |
+
+If you later need **RPMessage**, Linux coupling, or many endpoints, expect higher latency — stay on **`ipc_channel`** for bare R5F↔R5F throughput.
 
 ---
 
@@ -44,25 +62,20 @@ Core 0 (FreeRTOS, R5F-0)                       Core 1 (NoRTOS, R5F-1)
 ─────────────────────────                      ─────────────────────────
 main()                                         main()
  ├ System_init / Board_init                     ├ System_init / Board_init
- └ xTaskCreateStatic(freertos_main)             └ ipc_worker_run()
+ └ xTaskCreateStatic(freertos_main)             └ core1_app_run()
    └ freertos_main()                              ├ Drivers_open
-     └ ipc_master_run()                           ├ Board_driversOpen
-       ├ Drivers_open                             ├ IpcNotify_registerClient(
-       ├ Board_driversOpen                        │   4, on_master_request)
-       ├ SemaphoreP_constructBinary               ├ IpcNotify_syncAll() ◄────┐
-       ├ IpcNotify_registerClient(                │                          │
-       │   4, on_worker_reply)                    │                          │
-       ├ IpcNotify_syncAll() ──────────────────► ─┤  (cores rendezvous)      │
+     └ core0_app_run()                            ├ Board_driversOpen
+       ├ Drivers_open                             ├ ipc_channel_worker_init
+       ├ Board_driversOpen                        ├ ipc_channel_syncAll() ◄────┐
+       ├ ipc_channel_master_init                  │                          │
+       ├ ipc_channel_syncAll() ──────────────────►┤                          │
        │                                                                     │
        └ for iter = 0 .. N-1:                    └ for (;;):                 │
-         ┌─ fill req_buf with rand()               ┌─ WFI until ISR sets    │
-         │   gIpcCh.req_seq = expected_seq        │   gWorkerNewReqSeq      │
-         │   t0 = ClockP_getTimeUsec()            │                         │
-         │   IpcNotify_sendMsg(C1,4,seq) ──ISR───►│                         │
-         │   SemaphoreP_pend(timeout=5xT)         │   process_buffer(       │
-         │     blocks task at us precision        │     req_buf, resp_buf)  │
-         │                                        │   gIpcCh.resp_seq = seq │
-         │  ◄──── ISR ── IpcNotify_sendMsg(C0,4,seq) ◄┘                     │
+         ┌─ fill req_buf with rand()               ┌─ ipc_channel_worker_wait_request
+         │   ipc_channel_master_commit_request      │                         │
+         │   t0 = ClockP_getTimeUsec()              │   process_buffer(       │
+         │   ipc_channel_master_send_request(FAST)       │     req_buf, resp_buf)  │
+         │   ipc_channel_master_wait_reply         │   ipc_channel_worker_send_reply(FAST)
          │   t1 = ClockP_getTimeUsec()                                       │
          │   verify resp_buf[i] == req_buf[i] + 1                            │
          │   print PASS/FAIL + RTT us                                        │
@@ -75,7 +88,8 @@ main()                                         main()
 
 | Choice | Effect |
 |---|---|
-| Shared SRAM, no copy | Buffer is visible to both cores at the same physical address |
+| Shared SRAM, zero-copy in demo | Master and worker touch **`gIpcCh.req_buf` / `resp_buf`** directly — no helper-layer `memcpy`. |
+| **`IPC_DOORBELL_SEND_FAST` (0)** | Demo uses fast doorbell mode; use **`IPC_DOORBELL_SEND_WAIT` (1)** if you burst notifies and see drops. |
 | No spinlock | Each control word and each buffer has a single writer; the doorbell **is** the synchronization point |
 | Doorbell carries sequence number | Receiver detects drops / stale replies without a second handshake |
 | `SemaphoreP` posted from ISR | Master wakes within microseconds, bypassing the 1 ms FreeRTOS tick |
@@ -104,19 +118,67 @@ ipc_channel_t gIpcCh __attribute__((aligned(128),
 
 The linker on both cores maps `.bss.user_shared_mem` to the **same physical SRAM address**, so writes from one core are visible to the other through the section symbol. 128-byte alignment prevents false sharing with the R5F cache-line policy.
 
+### Shared transport API (`common/ipc_channel.h` / `ipc_channel.c`)
+
+Source of truth for behavior is the **block comments on each function** in `ipc_channel.c`. The following is a prose reference for the README.
+
+#### Prerequisites
+
+- Call **`Drivers_open()`** (and normally **`Board_driversOpen()`**) on each core *before* **`ipc_channel_*_init`**, **`ipc_channel_sync_all`**, or any **`ipc_channel_*_send_*`**. IpcNotify depends on SysConfig-generated driver init.
+- **`ipc_channel_sync_all()`** must run on **both** cores **after** each side has called its `*_init`, so neither core sends doorbells before the peer has registered its notify client.
+
+#### One transaction, correct order
+
+| Step | Core 0 (master) | Core 1 (worker) |
+|---|---|---|
+| 1 | Write `gIpcCh.req_buf[]` | — |
+| 2 | `seq = ipc_channel_master_commit_request()` | — |
+| 3 | `ipc_channel_master_send_request(seq, IPC_DOORBELL_SEND_FAST)` | ISR stores `seq` → main wakes |
+| 4 | `ipc_channel_master_wait_reply(timeoutTicks)` | `seq = ipc_channel_worker_wait_request()` |
+| 5 | (optional) check `gIpcCh.resp_seq == seq` | Read `req_buf`, compute into `resp_buf` |
+| 6 | Read `resp_buf` | `ipc_channel_worker_send_reply(seq, IPC_DOORBELL_SEND_FAST)` → master ISR posts sem |
+
+The **`seq`** value ties together: `req_seq` publish, notify payload, `resp_seq`, and application-level “which transaction is this?” checks (drops, stale replies).
+
+#### Functions (summary)
+
+| Function | Core | Role |
+|---|---|---|
+| **`ipc_channel_master_init`** | 0 | Build binary semaphore (starts “taken” so first `pend` blocks); register **`IPC_CLIENT_ID`** so worker → master notifies run **`ipc_on_worker_reply`**, which **`SemaphoreP_post`**s the master task. |
+| **`ipc_channel_master_deinit`** | 0 | Destroy that semaphore. Does **not** unregister IpcNotify (this layer does not expose unregister). |
+| **`ipc_channel_master_commit_request`** | 0 | **Single-writer bump** of `gIpcCh.req_seq`. Call **after** filling `req_buf`, **before** `send_request`. Returns the new sequence used as the transaction id. |
+| **`ipc_channel_master_send_request(seq, waitFifoEmpty)`** | 0 | **`IpcNotify_sendMsg`** to **`IPC_CORE_WORKER`**. Pass **`IPC_DOORBELL_SEND_FAST`** for minimum latency (one in-flight notify); **`IPC_DOORBELL_SEND_WAIT`** if the mailbox FIFO might fill. |
+| **`ipc_channel_master_wait_reply(timeoutTicks)`** | 0 | **`SemaphoreP_pend`** on the master semaphore. `timeoutTicks` uses the **DPL tick** (`IPC_MS_TO_TICKS(ms)` assumes **1 ms/tick** from default SysConfig). Returns **`SystemP_SUCCESS`** when the worker’s reply path fired the ISR; **does not** validate `resp_buf` or `resp_seq`—that stays in application code. |
+| **`ipc_channel_worker_init`** | 1 | Clear pending-request flag; register **`IPC_CLIENT_ID`** so master → worker notifies run **`ipc_on_master_request`**, which stores the **32-bit payload** (`seq`) for the main loop. |
+| **`ipc_channel_worker_wait_request`** | 1 | **`WFI`** loop until `gWorkerNewReqSeq != 0`, then **clear** it and **return** `seq`. **Not** safe for nested/concurrent callers; one worker loop is assumed. If the master overruns the worker, only the **latest** seq is kept (single-slot flag). |
+| **`ipc_channel_worker_send_reply(seq, waitFifoEmpty)`** | 1 | Set **`gIpcCh.resp_seq = seq`**, then **`IpcNotify_sendMsg`** to **`IPC_CORE_MASTER`**. Call **after** `resp_buf` is fully written. Same **`FAST` / `WAIT`** trade-off as master send. |
+| **`ipc_channel_sync_all`** | both | **`IpcNotify_syncAll(WAIT_FOREVER)`** — rendezvous barrier so startup ordering is safe. |
+
+#### Private ISR callbacks (in `ipc_channel.c` only)
+
+- **`ipc_on_worker_reply`** (Core 0): posts **`gMasterRespSem`**. Keep ISR minimal; no **`DebugP_log`**.
+- **`ipc_on_master_request`** (Core 1): assigns **`gWorkerNewReqSeq = msgValue`**. Same rule: no logging from ISR on NoRTOS shared-log path.
+
+#### What this layer deliberately does not do
+
+- No **spinlocks** (single-writer fields + doorbell ordering are enough for this ping-pong).
+- No **cache maintenance** (assumes **`.bss.user_shared_mem`** is **non-cacheable** per MPU; if you change that, add **`CacheP_*`** in the app around buffer access).
+- No **payload validation** or **UART** output.
+
+For failure-mode terminology (freeze vs seq mismatch vs corrupt bytes), see **Sequence-number protocol** below; replace “`SemaphoreP_pend`” in your head with **`ipc_channel_master_wait_reply`** when reading that table.
+
 ---
 
 ## Sequence-number protocol
 
 Every transaction has a monotonically increasing `uint32_t` sequence number, set by the master and echoed back by the worker. The same number is carried on the IpcNotify doorbell **and** written into the channel, which lets the master detect every interesting failure mode with a single equality test:
 
-| Failure mode | Detection | Counter | Visible log |
+| Failure mode | Detection | Counter | Typical log (demo) |
 |---|---|---|---|
-| **Drop** (worker missed a request) | `gIpcCh.resp_seq != expected_seq` after wake-up | `mis_seq` | `SEQ MISMATCH sent=N got=M` |
-| **Freeze** (worker hung, no reply ever) | `SemaphoreP_pend` returns non-zero after `IPC_RESP_TIMEOUT_MS` | `freezes` | `FREEZE no reply for seq=N within K ms` |
-| **Stale reply** (late reply from prior iter) | same as drop — old `seq` fails the equality | `mis_seq` | `SEQ MISMATCH ...` |
-| **Data corruption** | per-byte `resp[i] != (uint8_t)(req[i] + 1)` | `failed` | `FAIL seq=N X/1024 bytes wrong` |
-| **Success** | all of the above pass | `passed` | `PASS seq=N RTT=us` |
+| **Drop / stale** | `gIpcCh.resp_seq != expected_seq` after `ipc_channel_master_wait_reply` succeeds | `mis_seq` | `SEQ MISMATCH sent=… got=…` |
+| **Freeze** | `ipc_channel_master_wait_reply` returns non-success after timeout | `freezes` | `FREEZE …` |
+| **Data corruption** | per-byte `resp_buf[i] != (uint8_t)(req_buf[i] + 1)` | `failed` | `FAIL … bytes wrong` |
+| **Success** | pend OK, `resp_seq` match, bytes verify | `passed` | `PASS seq=… RTT=…` |
 
 Final summary line prints `min / avg / max` RTT in microseconds across all PASS iterations.
 
@@ -172,18 +234,15 @@ Two cheap ways to relax the constraint:
 
 ## Tuning knobs
 
-All in the top of `ipc_pingpong.c`:
+Application timing and iteration count are in `Core0-freertos/core0_app.c`:
 
 | `#define` | Default | Meaning |
 |---|---|---|
-| `IPC_BUF_LEN` | `1024U` | bytes per direction (`req_buf` and `resp_buf` each) |
-| `IPC_CLIENT_ID` | `4U` | IpcNotify endpoint ID; identical on both cores |
 | `IPC_PERIOD_MS` | `1000U` | master loop period (initial 1 s, future target 1 ms) |
 | `IPC_RESP_TIMEOUT_MS` | `5 * IPC_PERIOD_MS` | freeze-detect deadline |
 | `IPC_TEST_ITERATIONS` | `50U` | total transactions (`0` = run forever) |
-| `IPC_CORE_MASTER` | `CSL_CORE_ID_R5FSS0_0` | Core ID macro for R5F-0 |
-| `IPC_CORE_WORKER` | `CSL_CORE_ID_R5FSS0_1` | Core ID macro for R5F-1 |
-| `IPC_MS_TO_TICKS(ms)` | `(ms)` | valid only while DPL `usecPerTick == 1000` |
+
+Transport constants (`IPC_BUF_LEN`, `IPC_CLIENT_ID`, core IDs, `IPC_MS_TO_TICKS`) are in `common/ipc_channel.h` — change there when both sides must agree.
 
 ---
 
@@ -216,7 +275,7 @@ if (bad == 0U) {
     // no DebugP_log on the PASS path
 } else {
     failed++;
-    DebugP_log("[Master] iter=%4u  FAIL  seq=%u  %u/%u bytes wrong  RTT=%u us\r\n", ...);
+    DebugP_log("[Core0] iter=%4u  FAIL  seq=%u  %u/%u bytes wrong  RTT=%u us\r\n", ...);
 }
 ```
 
@@ -224,7 +283,7 @@ On Core 1 each `DebugP_log` is ~1500× cheaper (writes to a shared-memory ring, 
 
 ```c
 if ((seq % 1000U) == 0U) {
-    DebugP_log("[Worker] heartbeat seq=%u\r\n", (unsigned)seq);
+    DebugP_log("[Core1] heartbeat seq=%u\r\n", (unsigned)seq);
 }
 ```
 
@@ -242,7 +301,7 @@ Below ~10 µs period the doorbell round-trip itself becomes the limit. At that p
 
 ## Swap-point: the `process_buffer` function
 
-Single function inside `ipc_pingpong.c`, scoped to the worker side:
+Single `static` function in `Core1_nortos/core1_app.c`:
 
 ```c
 static void process_buffer(const uint8_t *in, uint8_t *out, uint32_t len)
@@ -268,7 +327,7 @@ Anything that fits that contract — DSP routines, an inference graph, a CRC, an
 
 `.bss.user_shared_mem` is **non-cacheable** under the default SysConfig MPU map on AM2612, so the producer/consumer paths in the current code do **not** call `CacheP_wb` or `CacheP_inv`. This is the simplest correct setup and what the upstream TI `ipc_spinlock_sharedmem` example also relies on.
 
-If you ever relocate the channel to a cacheable region (for higher SRAM bandwidth on very large buffers), add cache ops at the points marked `CACHE:` in `ipc_pingpong.c`:
+If you ever relocate the channel to a cacheable region (for higher SRAM bandwidth on very large buffers), add cache ops at producer/consumer boundaries in `core0_app.c` / `core1_app.c` (or wrap calls around `ipc_channel_*`):
 
 ```c
 // Core 0 (master), AFTER filling req_buf, BEFORE sending the doorbell:
@@ -299,20 +358,20 @@ Forgetting any one of these on cacheable memory produces stale reads that look l
 Console output (after both cores rendezvous):
 
 ```
-[Worker] starting, client=4
-[Master] IPC ping-pong: 1024 B/dir, period 1000 ms, timeout 5000 ms
-[Worker] ready, entering service loop
-[Master] worker is ready, starting transactions
-[Master] iter=   0  PASS  seq=1  RTT=42 us
-[Master] iter=   1  PASS  seq=2  RTT=39 us
+[Core1] starting, client=4
+[Core0] IPC ping-pong: 1024 B/dir, period 1000 ms, timeout 5000 ms
+[Core1] ready, service loop
+[Core0] worker ready, starting transactions
+[Core0] iter=   0  PASS  seq=1  RTT=42 us
+[Core0] iter=   1  PASS  seq=2  RTT=39 us
 ...
-[Master] === Summary ===
-[Master]   iterations : 50
-[Master]   passed     : 50
-[Master]   failed     : 0
-[Master]   seq miss   : 0
-[Master]   freezes    : 0
-[Master]   RTT min/avg/max us : 38 / 42 / 71
+[Core0] === Summary ===
+[Core0]   iterations : 50
+[Core0]   passed     : 50
+[Core0]   failed     : 0
+[Core0]   seq miss   : 0
+[Core0]   freezes    : 0
+[Core0]   RTT min/avg/max us : 38 / 42 / 71
 ```
 
 Exact numbers depend on R5F clock, UART contention, cache state, and what's happening on the other core. The `t0/t1` timestamps are taken around the doorbell only, so the printed RTT reflects actual IPC latency — not the visible delay on the console (which is dominated by UART transmission of the log lines themselves).
@@ -335,8 +394,8 @@ For two R5F cores on the same SoC, the shared-SRAM + IpcNotify combination is th
 
 ## Roadmap
 
-- [ ] Drop `IPC_PERIOD_MS` from 1000 to 1 (also silence the per-iteration PASS log).
-- [ ] Replace `process_buffer` with the target model code (keep the `(in, out, len)` contract).
+- [ ] In `core0_app.c`: drop `IPC_PERIOD_MS` from 1000 to 1 (also silence the per-iteration PASS log).
+- [ ] Replace `process_buffer` in `core1_app.c` with the target model code (keep the `(in, out, len)` contract).
 - [ ] If the model needs cycle counts beyond µs resolution, add a `ClockP_getTimeUsec` snapshot around the `process_buffer` call on Core 1 and stash it in a shared field.
 - [ ] If you need < 1 ms periods, lower `usecPerTick` in `example.syscfg` (both cores) and rebuild.
 - [ ] If buffers grow past ~4 KB, consider moving the channel to cacheable memory and adding the four `CacheP_*` calls noted above.
@@ -345,4 +404,4 @@ For two R5F cores on the same SoC, the shared-SRAM + IpcNotify combination is th
 
 ## License
 
-The original source carries the TI BSD-3 example license (see header in `ipc_pingpong.c`). The modifications in this project follow the same license unless you decide otherwise for your own derived work.
+The transport files (`common/ipc_channel.c`) and app files carry the TI BSD-3 style headers where applicable. The modifications in this project follow the same license unless you decide otherwise for your own derived work.
