@@ -15,7 +15,7 @@
  * PROTOCOL (single in-flight transaction)
  *   Master: fill `gIpcCh.req_buf` → `ipc_channel_master_commit_request()` publishes
  *           a new monotonic `req_seq` → `ipc_channel_master_send_request(seq, …)`
- *           doorbells the worker with that seq → `ipc_channel_master_wait_reply()` blocks
+ *           doorbells the worker with that seq → `ipc_channel_master_wait_reply*()` blocks
  *           until the worker's reply ISR runs → master checks `gIpcCh.resp_seq == seq`
  *           and reads `resp_buf`.
  *   Worker: `ipc_channel_worker_wait_request()` returns the seq from the master's doorbell
@@ -32,6 +32,7 @@
 
 #include <kernel/dpl/SystemP.h>
 #include <kernel/dpl/SemaphoreP.h>
+#include <kernel/dpl/ClockP.h>
 #include <drivers/ipc_notify.h>
 
 /* -------------------------------------------------------------------------- */
@@ -80,7 +81,9 @@ ipc_channel_t gIpcCh
  *
  * When to call
  *   Once on Core 0, after `Drivers_open` / board setup, before `ipc_channel_sync_all`
- *   and before any send/wait transaction.
+ *   and before any send/wait transaction. With **FreeRTOS**, the DPL semaphore is
+ *   typically RTOS-backed: call **after** `vTaskStartScheduler()` (e.g. from the
+ *   first task), not from `main()` before the scheduler starts.
  *
  * Return value
  *   SystemP_SUCCESS on success; on failure the semaphore is torn down if it was
@@ -201,6 +204,44 @@ void ipc_channel_master_send_request(uint32_t seq, uint32_t waitFifoEmpty)
 int32_t ipc_channel_master_wait_reply(uint32_t timeoutTicks)
 {
     return SemaphoreP_pend(&gMasterRespSem, timeoutTicks);
+}
+
+/*
+ * ipc_channel_master_wait_reply_usec
+ *
+ * Waits for the worker reply with a **microsecond** deadline.
+ *
+ * Why this exists
+ *   `ipc_channel_master_wait_reply(timeoutTicks)` uses the DPL tick as the time base.
+ *   With default SysConfig `usecPerTick == 1000`, one tick is **1 ms**, so you cannot
+ *   express 200 µs (or any sub-millisecond timeout) accurately with ticks alone.
+ *
+ * How it works
+ *   Tight loop: non-blocking `SemaphoreP_pend(..., 0)` until success, or until
+ *   `ClockP_getTimeUsec() - t0 >= timeoutUsec`. This briefly busy-spins the master CPU
+ *   while waiting (typically only a few µs until the ISR runs). Acceptable for very
+ *   short timeouts; for multi-millisecond waits prefer `ipc_channel_master_wait_reply`
+ *   with `IPC_MS_TO_TICKS` so the RTOS can block without burning cycles.
+ *
+ * Return value
+ *   `SystemP_SUCCESS` when the semaphore was posted; `SystemP_FAILURE` on timeout.
+ */
+int32_t ipc_channel_master_wait_reply_usec(uint32_t timeoutUsec)
+{
+    uint64_t t0 = ClockP_getTimeUsec();
+
+    for (;;)
+    {
+        int32_t st = SemaphoreP_pend(&gMasterRespSem, 0);
+        if (st == SystemP_SUCCESS)
+        {
+            return SystemP_SUCCESS;
+        }
+        if ((ClockP_getTimeUsec() - t0) >= (uint64_t)timeoutUsec)
+        {
+            return SystemP_FAILURE;
+        }
+    }
 }
 
 /* -------------------------------------------------------------------------- */

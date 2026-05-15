@@ -19,8 +19,8 @@ AM2612_DualCore/
 │
 ├── Core0-freertos/                      Core 0 (R5F-0) - master, FreeRTOS
 │   ├── main_core0.c                     entry point + FreeRTOS task creation
-│   ├── core0_app.c                      master loop, verify, logs, timing
-│   ├── example.syscfg                   SysConfig (drivers, MPU, FreeRTOS)
+│   ├── core0_app.h / core0_app.c      master: startup helpers + IPC loop + summary
+│   ├── example.syscfg                   SysConfig (drivers, MPU, memory, IPC, debug log)
 │   ├── .project / .cproject / .ccsproject   CCS project descriptors
 │   ├── targetConfigs/                   debug probe config (XDS-class)
 │   └── Debug/                           (auto-generated build output, gitignored)
@@ -63,25 +63,26 @@ Core 0 (FreeRTOS, R5F-0)                       Core 1 (NoRTOS, R5F-1)
 main()                                         main()
  ├ System_init / Board_init                     ├ System_init / Board_init
  └ xTaskCreateStatic(freertos_main)             └ core1_app_run()
-   └ freertos_main()                              ├ Drivers_open
-     └ core0_app_run()                            ├ Board_driversOpen
-       ├ Drivers_open                             ├ ipc_channel_worker_init
-       ├ Board_driversOpen                        ├ ipc_channel_syncAll() ◄────┐
-       ├ ipc_channel_master_init                  │                          │
-       ├ ipc_channel_syncAll() ──────────────────►┤                          │
-       │                                                                     │
-       └ for iter = 0 .. N-1:                    └ for (;;):                 │
-         ┌─ fill req_buf with rand()               ┌─ ipc_channel_worker_wait_request
-         │   ipc_channel_master_commit_request      │                         │
-         │   t0 = ClockP_getTimeUsec()              │   process_buffer(       │
-         │   ipc_channel_master_send_request(FAST)       │     req_buf, resp_buf)  │
-         │   ipc_channel_master_wait_reply         │   ipc_channel_worker_send_reply(FAST)
-         │   t1 = ClockP_getTimeUsec()                                       │
-         │   verify resp_buf[i] == req_buf[i] + 1                            │
-         │   print PASS/FAIL + RTT us                                        │
-         └─ ClockP_usleep(IPC_PERIOD_MS * 1000)                              │
-                                                                              │
-       Final summary: pass / fail / seq-miss / freezes / RTT min,avg,max ◄───┘
+   └ freertos_main()                                ├ Drivers_open
+     └ core0_app_run()                              ├ Board_driversOpen
+       ├ Drivers_open / Board_driversOpen           ├ ipc_channel_worker_init
+       ├ srand(...)                                 ├ ipc_channel_sync_all()
+       ├ ipc_channel_master_init                    │
+       ├ ipc_channel_sync_all() ◄───────────────────┘
+       └ for iter = 0 .. N-1:
+         ┌─ fill req_buf with rand()
+         │   ipc_channel_master_commit_request
+         │   t0 = ClockP_getTimeUsec()
+         │   ipc_channel_master_send_request(FAST)
+         │   ipc_channel_master_wait_reply_usec
+         │   t1 = ClockP_getTimeUsec()
+         │   verify resp_buf[i] == req_buf[i] + 1
+         │   print PASS/FAIL + RTT us
+         └─ ClockP_usleep(IPC_PERIOD_MS * 1000)
+
+       Final summary + ipc_channel_master_deinit()
+
+Core 1 (right column, after sync): `for (;;)` → wait request → process_buffer → send_reply → WFI.
 ```
 
 ### Why this is fast
@@ -125,6 +126,7 @@ Source of truth for behavior is the **block comments on each function** in `ipc_
 #### Prerequisites
 
 - Call **`Drivers_open()`** (and normally **`Board_driversOpen()`**) on each core *before* **`ipc_channel_*_init`**, **`ipc_channel_sync_all`**, or any **`ipc_channel_*_send_*`**. IpcNotify depends on SysConfig-generated driver init.
+- On Core 0, **`Drivers_open()`** / **`Board_driversOpen()`**, **`srand()`**, **`ipc_channel_master_init()`**, and **`ipc_channel_sync_all()`** all run at the start of **`core0_app_run()`** (invoked from **`freertos_main`** after **`vTaskStartScheduler()`**). **`ipc_channel_master_init()`** uses RTOS-backed **`SemaphoreP`** and must not run from **`main()`** before the scheduler starts.
 - **`ipc_channel_sync_all()`** must run on **both** cores **after** each side has called its `*_init`, so neither core sends doorbells before the peer has registered its notify client.
 
 #### One transaction, correct order
@@ -134,9 +136,11 @@ Source of truth for behavior is the **block comments on each function** in `ipc_
 | 1 | Write `gIpcCh.req_buf[]` | — |
 | 2 | `seq = ipc_channel_master_commit_request()` | — |
 | 3 | `ipc_channel_master_send_request(seq, IPC_DOORBELL_SEND_FAST)` | ISR stores `seq` → main wakes |
-| 4 | `ipc_channel_master_wait_reply(timeoutTicks)` | `seq = ipc_channel_worker_wait_request()` |
+| 4 | `ipc_channel_master_wait_reply` **or** `ipc_channel_master_wait_reply_usec` | `seq = ipc_channel_worker_wait_request()` |
 | 5 | (optional) check `gIpcCh.resp_seq == seq` | Read `req_buf`, compute into `resp_buf` |
 | 6 | Read `resp_buf` | `ipc_channel_worker_send_reply(seq, IPC_DOORBELL_SEND_FAST)` → master ISR posts sem |
+
+Use **`ipc_channel_master_wait_reply_usec`** when the budget is **shorter than one DPL tick** (default **1 ms/tick** → `IPC_MS_TO_TICKS(1)` is the minimum tick-based wait). The µs variant **busy-spins** with `SemaphoreP_pend(..., 0)` until the ISR fires or the deadline elapses — fine for hundreds of µs; for multi-millisecond waits prefer **`ipc_channel_master_wait_reply`** + **`IPC_MS_TO_TICKS`** so FreeRTOS can block without burning CPU.
 
 The **`seq`** value ties together: `req_seq` publish, notify payload, `resp_seq`, and application-level “which transaction is this?” checks (drops, stale replies).
 
@@ -148,7 +152,8 @@ The **`seq`** value ties together: `req_seq` publish, notify payload, `resp_seq`
 | **`ipc_channel_master_deinit`** | 0 | Destroy that semaphore. Does **not** unregister IpcNotify (this layer does not expose unregister). |
 | **`ipc_channel_master_commit_request`** | 0 | **Single-writer bump** of `gIpcCh.req_seq`. Call **after** filling `req_buf`, **before** `send_request`. Returns the new sequence used as the transaction id. |
 | **`ipc_channel_master_send_request(seq, waitFifoEmpty)`** | 0 | **`IpcNotify_sendMsg`** to **`IPC_CORE_WORKER`**. Pass **`IPC_DOORBELL_SEND_FAST`** for minimum latency (one in-flight notify); **`IPC_DOORBELL_SEND_WAIT`** if the mailbox FIFO might fill. |
-| **`ipc_channel_master_wait_reply(timeoutTicks)`** | 0 | **`SemaphoreP_pend`** on the master semaphore. `timeoutTicks` uses the **DPL tick** (`IPC_MS_TO_TICKS(ms)` assumes **1 ms/tick** from default SysConfig). Returns **`SystemP_SUCCESS`** when the worker’s reply path fired the ISR; **does not** validate `resp_buf` or `resp_seq`—that stays in application code. |
+| **`ipc_channel_master_wait_reply(timeoutTicks)`** | 0 | **`SemaphoreP_pend`** — timeout in **DPL ticks** (default **1 ms/tick**). Minimum practical tick timeout ≈ **1 ms**. |
+| **`ipc_channel_master_wait_reply_usec(timeoutUsec)`** | 0 | **`ClockP_getTimeUsec`** deadline + **`SemaphoreP_pend(..., 0)`** spin. Use for **sub-millisecond** budgets (e.g. **200 µs**). Busy-waits until reply or timeout. |
 | **`ipc_channel_worker_init`** | 1 | Clear pending-request flag; register **`IPC_CLIENT_ID`** so master → worker notifies run **`ipc_on_master_request`**, which stores the **32-bit payload** (`seq`) for the main loop. |
 | **`ipc_channel_worker_wait_request`** | 1 | **`WFI`** loop until `gWorkerNewReqSeq != 0`, then **clear** it and **return** `seq`. **Not** safe for nested/concurrent callers; one worker loop is assumed. If the master overruns the worker, only the **latest** seq is kept (single-slot flag). |
 | **`ipc_channel_worker_send_reply(seq, waitFifoEmpty)`** | 1 | Set **`gIpcCh.resp_seq = seq`**, then **`IpcNotify_sendMsg`** to **`IPC_CORE_MASTER`**. Call **after** `resp_buf` is fully written. Same **`FAST` / `WAIT`** trade-off as master send. |
@@ -165,7 +170,7 @@ The **`seq`** value ties together: `req_seq` publish, notify payload, `resp_seq`
 - No **cache maintenance** (assumes **`.bss.user_shared_mem`** is **non-cacheable** per MPU; if you change that, add **`CacheP_*`** in the app around buffer access).
 - No **payload validation** or **UART** output.
 
-For failure-mode terminology (freeze vs seq mismatch vs corrupt bytes), see **Sequence-number protocol** below; replace “`SemaphoreP_pend`” in your head with **`ipc_channel_master_wait_reply`** when reading that table.
+For failure-mode terminology (freeze vs seq mismatch vs corrupt bytes), see **Sequence-number protocol** below (`ipc_channel_master_wait_reply` **or** `ipc_channel_master_wait_reply_usec`).
 
 ---
 
@@ -176,7 +181,7 @@ Every transaction has a monotonically increasing `uint32_t` sequence number, set
 | Failure mode | Detection | Counter | Typical log (demo) |
 |---|---|---|---|
 | **Drop / stale** | `gIpcCh.resp_seq != expected_seq` after `ipc_channel_master_wait_reply` succeeds | `mis_seq` | `SEQ MISMATCH sent=… got=…` |
-| **Freeze** | `ipc_channel_master_wait_reply` returns non-success after timeout | `freezes` | `FREEZE …` |
+| **Freeze** | `ipc_channel_master_wait_reply` **or** `ipc_channel_master_wait_reply_usec` returns non-success after timeout | `freezes` | `FREEZE …` |
 | **Data corruption** | per-byte `resp_buf[i] != (uint8_t)(req_buf[i] + 1)` | `failed` | `FAIL … bytes wrong` |
 | **Success** | pend OK, `resp_seq` match, bytes verify | `passed` | `PASS seq=… RTT=…` |
 
@@ -238,8 +243,8 @@ Application timing and iteration count are in `Core0-freertos/core0_app.c`:
 
 | `#define` | Default | Meaning |
 |---|---|---|
-| `IPC_PERIOD_MS` | `1000U` | master loop period (initial 1 s, future target 1 ms) |
-| `IPC_RESP_TIMEOUT_MS` | `5 * IPC_PERIOD_MS` | freeze-detect deadline |
+| `IPC_PERIOD_MS` | `1000U` | master loop period |
+| `IPC_RESP_TIMEOUT_US` | `200U` | reply wait budget in **microseconds** (`ipc_channel_master_wait_reply_usec`) |
 | `IPC_TEST_ITERATIONS` | `50U` | total transactions (`0` = run forever) |
 
 Transport constants (`IPC_BUF_LEN`, `IPC_CLIENT_ID`, core IDs, `IPC_MS_TO_TICKS`) are in `common/ipc_channel.h` — change there when both sides must agree.

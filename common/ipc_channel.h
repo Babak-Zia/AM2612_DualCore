@@ -13,7 +13,7 @@
 #include <drivers/hw_include/am261x/cslr_soc_defines.h>
 
 /** Byte size of each directional payload (`req_buf` and `resp_buf`). */
-#define IPC_BUF_LEN         (1024U)
+#define IPC_BUF_LEN         (512U)
 
 /** Local client id for IpcNotify; must match on master and worker. */
 #define IPC_CLIENT_ID       (4U)
@@ -69,8 +69,15 @@ uint32_t ipc_channel_master_commit_request(void);
 /** @see ipc_channel.c — doorbell worker with transaction id `seq`. */
 void ipc_channel_master_send_request(uint32_t seq, uint32_t waitFifoEmpty);
 
-/** @see ipc_channel.c — block until reply ISR or timeout (ticks). */
+/** @see ipc_channel.c — block until reply ISR or timeout (DPL ticks, ≥1 ms/tick default). */
 int32_t ipc_channel_master_wait_reply(uint32_t timeoutTicks);
+
+/**
+ * Wait for worker reply with a microsecond timeout (busy-poll + SemaphoreP_pend(0)).
+ * Use when the timeout is shorter than the DPL tick period (e.g. 200 us with 1 ms/tick).
+ * For multi-ms waits, prefer ipc_channel_master_wait_reply + IPC_MS_TO_TICKS.
+ */
+int32_t ipc_channel_master_wait_reply_usec(uint32_t timeoutUsec);
 
 /* ---------- Worker (Core 1) ---------- */
 
