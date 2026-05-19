@@ -67,8 +67,8 @@ int main(void)
 
     Drivers_open();
     Board_driversOpen();
- /*   DebugP_log("Starting Core 0 ...\r\n");
-    DebugP_log("[Core0] IPC (zero-copy): %u B/dir, period %u ms, reply timeout %u us\r\n",
+//   DebugP_log("Starting Core 0 ...\r\n");
+    /*DebugP_log("[Core0] IPC (zero-copy): %u B/dir, period %u ms, reply timeout %u us\r\n",
                (unsigned)IPC_BUF_LEN, (unsigned)CORE0_IPC_PERIOD_MS,
                (unsigned)CORE0_IPC_RESP_TIMEOUT_US);*/
 
