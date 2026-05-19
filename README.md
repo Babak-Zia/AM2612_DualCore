@@ -62,10 +62,10 @@ Core 0 (FreeRTOS, R5F-0)                       Core 1 (NoRTOS, R5F-1)
 ─────────────────────────                      ─────────────────────────
 main()                                         main()
  ├ System_init / Board_init                     ├ System_init / Board_init
- └ xTaskCreateStatic(freertos_main)             └ core1_app_run()
-   └ freertos_main()                                ├ Drivers_open
-     └ core0_app_run()                              ├ Board_driversOpen
-       ├ Drivers_open / Board_driversOpen           ├ ipc_channel_worker_init
+ ├ Drivers_open / Board_driversOpen             └ core1_app_run()
+ └ xTaskCreateStatic(freertos_main)                 ├ Drivers_open
+   └ freertos_main()                                ├ Board_driversOpen
+     └ core0_app_run()                              ├ ipc_channel_worker_init
        ├ srand(...)                                 ├ ipc_channel_sync_all()
        ├ ipc_channel_master_init                    │
        ├ ipc_channel_sync_all() ◄───────────────────┘
@@ -126,7 +126,7 @@ Source of truth for behavior is the **block comments on each function** in `ipc_
 #### Prerequisites
 
 - Call **`Drivers_open()`** (and normally **`Board_driversOpen()`**) on each core *before* **`ipc_channel_*_init`**, **`ipc_channel_sync_all`**, or any **`ipc_channel_*_send_*`**. IpcNotify depends on SysConfig-generated driver init.
-- On Core 0, **`Drivers_open()`** / **`Board_driversOpen()`**, **`srand()`**, **`ipc_channel_master_init()`**, and **`ipc_channel_sync_all()`** all run at the start of **`core0_app_run()`** (invoked from **`freertos_main`** after **`vTaskStartScheduler()`**). **`ipc_channel_master_init()`** uses RTOS-backed **`SemaphoreP`** and must not run from **`main()`** before the scheduler starts.
+- On Core 0, **`Drivers_open()`** / **`Board_driversOpen()`** run in **`main()`** before **`vTaskStartScheduler()`**. **`srand()`**, **`ipc_channel_master_init()`**, and **`ipc_channel_sync_all()`** run at the start of **`core0_app_run()`** after the scheduler is up — **`ipc_channel_master_init()`** uses RTOS-backed **`SemaphoreP`** and must not run from **`main()`** before the scheduler starts.
 - **`ipc_channel_sync_all()`** must run on **both** cores **after** each side has called its `*_init`, so neither core sends doorbells before the peer has registered its notify client.
 
 #### One transaction, correct order

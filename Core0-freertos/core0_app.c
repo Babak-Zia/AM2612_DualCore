@@ -2,8 +2,8 @@
  * core0_app.c — FreeRTOS master: policy, logging, timing, verification.
  * Transport: common/ipc_channel.c (zero-copy — read/write gIpcCh buffers in place).
  *
- * Driver open and IPC master setup run in core0_app_run() after vTaskStartScheduler()
- * so SemaphoreP (RTOS-backed) constructs successfully.
+ * Drivers_open / Board_driversOpen run from main_core0.c before the scheduler.
+ * IPC master init stays in core0_app_run() after vTaskStartScheduler() (SemaphoreP).
  */
 
 #include <stdint.h>
@@ -14,14 +14,9 @@
 #include <kernel/dpl/ClockP.h>
 
 #include "ipc_channel.h"
-#include "ti_drivers_open_close.h"
-#include "ti_board_open_close.h"
 
 #include "core0_app.h"
 
-#define IPC_PERIOD_MS          (100U)
-/** Reply wait budget (microseconds). Uses ipc_channel_master_wait_reply_usec — see ipc_channel.c. */
-#define IPC_RESP_TIMEOUT_US    (200U)
 #define IPC_TEST_ITERATIONS    (50U)
 
 typedef struct
@@ -66,14 +61,10 @@ static uint32_t core0_count_resp_mismatch_bytes(void)
 static void core0_ipc_startup(void)
 {
     int32_t status;
-
-    Drivers_open();
-    Board_driversOpen();
-
+    
     DebugP_log("[Core0] IPC (zero-copy): %u B/dir, period %u ms, reply timeout %u us\r\n",
-               (unsigned)IPC_BUF_LEN, (unsigned)IPC_PERIOD_MS,
-               (unsigned)IPC_RESP_TIMEOUT_US);
-
+               (unsigned)IPC_BUF_LEN, (unsigned)CORE0_IPC_PERIOD_MS,
+               (unsigned)CORE0_IPC_RESP_TIMEOUT_US);
     core0_seed_rand_from_clock();
 
     status = ipc_channel_master_init();
@@ -98,7 +89,7 @@ static void core0_ipc_one_iteration(uint32_t iter, Core0IpcStats *st)
 
     ipc_channel_master_send_request(expected_seq, IPC_DOORBELL_SEND_FAST);
 
-    status = ipc_channel_master_wait_reply_usec(IPC_RESP_TIMEOUT_US);
+    status = ipc_channel_master_wait_reply_usec(CORE0_IPC_RESP_TIMEOUT_US);
 
     t1     = (uint32_t)ClockP_getTimeUsec();
     rtt_us = t1 - t0;
@@ -108,7 +99,7 @@ static void core0_ipc_one_iteration(uint32_t iter, Core0IpcStats *st)
         st->freezes++;
         DebugP_log("[Core0] iter=%4u  FREEZE  seq=%u within %u us  RTT=%u us\r\n",
                    (unsigned)iter, (unsigned)expected_seq,
-                   (unsigned)IPC_RESP_TIMEOUT_US, (unsigned)rtt_us);
+                   (unsigned)CORE0_IPC_RESP_TIMEOUT_US, (unsigned)rtt_us);
     }
     else if (gIpcCh.resp_seq != expected_seq)
     {
@@ -178,7 +169,7 @@ void core0_app_run(void *args)
     {
         core0_ipc_one_iteration(iter, &st);
         iter++;
-        ClockP_usleep(IPC_PERIOD_MS * 1000U);
+        ClockP_usleep(CORE0_IPC_PERIOD_MS * 1000U);
     }
 
     core0_ipc_print_summary(iter, &st);

@@ -34,9 +34,12 @@
 #include <kernel/dpl/DebugP.h>
 #include "ti_drivers_config.h"
 #include "ti_board_config.h"
+#include "ti_drivers_open_close.h"
+#include "ti_board_open_close.h"
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include "ipc_channel.h"
 #include "core0_app.h"
 
 #define MAIN_TASK_PRI  (configMAX_PRIORITIES-1)
@@ -49,6 +52,7 @@ TaskHandle_t gMainTask;
 
 void freertos_main(void *args)
 {
+    DebugP_log("Starting Core 0 task ...\r\n");
     core0_app_run(NULL);
 
     vTaskDelete(NULL);
@@ -60,6 +64,13 @@ int main(void)
     /* init SOC specific modules */
     System_init();
     Board_init();
+
+    Drivers_open();
+    Board_driversOpen();
+ /*   DebugP_log("Starting Core 0 ...\r\n");
+    DebugP_log("[Core0] IPC (zero-copy): %u B/dir, period %u ms, reply timeout %u us\r\n",
+               (unsigned)IPC_BUF_LEN, (unsigned)CORE0_IPC_PERIOD_MS,
+               (unsigned)CORE0_IPC_RESP_TIMEOUT_US);*/
 
     /* This task is created at highest priority, it should create more tasks and then delete itself */
     gMainTask = xTaskCreateStatic( freertos_main,   /* Pointer to the function that implements the task. */
