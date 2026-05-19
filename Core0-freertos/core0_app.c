@@ -2,7 +2,7 @@
  * core0_app.c — FreeRTOS master: policy, logging, timing, verification.
  * Transport: common/ipc_channel.c (zero-copy — read/write gIpcCh buffers in place).
  *
- * Driver and IPC master setup run in core0_app_run() after vTaskStartScheduler()
+ * Driver open and IPC master setup run in core0_app_run() after vTaskStartScheduler()
  * so SemaphoreP (RTOS-backed) constructs successfully.
  */
 
