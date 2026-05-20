@@ -9,7 +9,27 @@
 /**
  * Import the modules used in this configuration.
  */
+const eeprom          = scripting.addModule("/board/eeprom/eeprom", {}, false);
+const eeprom1         = eeprom.addInstance();
+const eeprom2         = eeprom.addInstance();
+const flash           = scripting.addModule("/board/flash/flash", {}, false);
+const flash1          = flash.addInstance();
+const ioexp           = scripting.addModule("/board/ioexp/ioexp", {}, false);
+const ioexp1          = ioexp.addInstance();
+const ioexp2          = ioexp.addInstance();
+const led             = scripting.addModule("/board/led/led", {}, false);
+const led1            = led.addInstance();
+const led2            = led.addInstance();
+const edma            = scripting.addModule("/drivers/edma/edma", {}, false);
+const edma1           = edma.addInstance();
+const gpio            = scripting.addModule("/drivers/gpio/gpio", {}, false);
+const gpio1           = gpio.addInstance();
+const i2c             = scripting.addModule("/drivers/i2c/i2c", {}, false);
+const i2c1            = i2c.addInstance();
+const i2c2            = i2c.addInstance();
 const ipc             = scripting.addModule("/drivers/ipc/ipc");
+const ethercat        = scripting.addModule("/industrial_comms/ethercat/ethercat", {}, false);
+const ethercat1       = ethercat.addInstance();
 const debug_log       = scripting.addModule("/kernel/dpl/debug_log");
 const dpl_cfg         = scripting.addModule("/kernel/dpl/dpl_cfg");
 const mpu_armv7       = scripting.addModule("/kernel/dpl/mpu_armv7", {}, false);
@@ -43,10 +63,89 @@ const section12       = section.addInstance();
 /**
  * Write custom configuration values to the imported modules.
  */
+eeprom1.$name      = "CONFIG_EEPROM0";
+eeprom1.i2cAddress = 0x53;
+
+eeprom2.$name      = "CONFIG_EEPROM1";
+eeprom2.i2cAddress = 0x51;
+
+flash1.$name                                    = "CONFIG_FLASH0";
+flash1.enableFlashReset                         = true;
+flash1.peripheralDriver.$name                   = "CONFIG_OSPI0";
+flash1.peripheralDriver.phyEnable               = true;
+flash1.peripheralDriver.OSPI.$assign            = "OSPI0";
+flash1.peripheralDriver.OSPI.CLK.$assign        = "GPIO10";
+flash1.peripheralDriver.OSPI.CSn0.$assign       = "GPIO62";
+flash1.peripheralDriver.OSPI.DQS.$assign        = "GPIO9";
+flash1.peripheralDriver.OSPI.D7.$assign         = "GPIO68";
+flash1.peripheralDriver.OSPI.D6.$assign         = "GPIO8";
+flash1.peripheralDriver.OSPI.D5.$assign         = "GPIO67";
+flash1.peripheralDriver.OSPI.D4.$assign         = "GPIO76";
+flash1.peripheralDriver.OSPI.D3.$assign         = "GPIO69";
+flash1.peripheralDriver.OSPI.D2.$assign         = "GPIO7";
+flash1.peripheralDriver.OSPI.D1.$assign         = "GPIO70";
+flash1.peripheralDriver.OSPI.D0.$assign         = "GPIO2";
+flash1.peripheralDriver.OSPI.RESET_OUT0.$assign = "GPIO61";
+flash1.peripheralDriver.child.$name             = "drivers_ospi_v0_ospi_v0_am261x_template1";
+
+ioexp1.$name      = "CONFIG_IOEXP0";
+ioexp1.i2cAddress = "LP-RevA 0x20";
+
+ioexp2.$name                                       = "CONFIG_IOEXP1";
+ioexp2.i2cAddress                                  = "LP-RevA 0x21";
+ioexp2.TCA6408ARGT_port0_pinMDIO_MDC_MUX_SEL_mode  = 0;
+ioexp2.TCA6408ARGT_port0_pinMDIO_MDC_MUX_SEL_state = 1;
+
+led1.$name      = "CONFIG_LED_DIGITAL_OUTPUT";
+led1.name       = "TPIC2810";
+led1.i2cAddress = 0x61;
+
+led2.$name = "CONFIG_LED_RUN";
+
+edma1.$name                 = "CONFIG_EDMA0";
+edma1.edmaRmDmaCh[0].$name  = "CONFIG_EDMA_RM0";
+edma1.edmaRmQdmaCh[0].$name = "CONFIG_EDMA_RM1";
+edma1.edmaRmTcc[0].$name    = "CONFIG_EDMA_RM2";
+edma1.edmaRmParam[0].$name  = "CONFIG_EDMA_RM3";
+
+gpio1.$name           = "CONFIG_GPIO0";
+gpio1.pinDir          = "OUTPUT";
+led2.peripheralDriver = gpio1;
+
+eeprom1.peripheralDriver = i2c1;
+i2c1.$name               = "CONFIG_I2C0";
+ioexp1.peripheralDriver  = i2c1;
+eeprom2.peripheralDriver = i2c1;
+ioexp2.peripheralDriver  = i2c1;
+i2c1.I2C.$assign         = "I2C0";
+i2c1.I2C.SCL.$assign     = "GPIO135";
+i2c1.I2C.SDA.$assign     = "GPIO134";
+i2c1.I2C_child.$name     = "drivers_i2c_v1_i2c_v1_template0";
+
+i2c2.$name            = "CONFIG_I2C1";
+led1.peripheralDriver = i2c2;
+i2c2.I2C.$assign      = "I2C1";
+i2c2.I2C.SCL.$assign  = "GPIO23";
+i2c2.I2C.SDA.$assign  = "GPIO24";
+i2c2.I2C_child.$name  = "drivers_i2c_v1_i2c_v1_template1";
+
 ipc.r5fss0_1 = "notify";
 
-debug_log.enableCssLog             = false;
+ethercat1.$name                                                = "CONFIG_ETHERCAT0";
+ethercat1["PRU-ICSS0-IEP"].PR0_IEP0_EDIO_DATA_IN_OUT31.$assign = "GPIO120";
+ethercat1.ethphy[0].$name                                      = "CONFIG_ETHPHY0";
+ethercat1.ethphy[0].mdioPort                                   = 3;
+ethercat1.ethphy[1].$name                                      = "CONFIG_ETHPHY1";
+ethercat1.ethphy[1].mdioPort                                   = 12;
+
+const pruicss                            = scripting.addModule("/drivers/pruicss/pruicss", {}, false);
+const pruicss1                           = pruicss.addInstance({}, false);
+pruicss1.$name                           = "CONFIG_PRU_ICSS0";
+ethercat1.icss                           = pruicss1;
+pruicss1.AdditionalICSSSettings[0].$name = "CONFIG_PRU_ICSS_IO0";
+
 debug_log.enableUartLog            = true;
+debug_log.enableCssLog             = false;
 debug_log.enableSharedMemLog       = true;
 debug_log.enableSharedMemLogReader = true;
 debug_log.uartLog.$name            = "CONFIG_UART0";
@@ -58,8 +157,8 @@ debug_log.uartLog.child.$name      = "drivers_uart_v2_uart_v2_template0";
 
 mpu_armv71.$name             = "CONFIG_MPU_REGION0";
 mpu_armv71.size              = 31;
-mpu_armv71.attributes        = "Device";
 mpu_armv71.accessPermissions = "Supervisor RD+WR, User RD";
+mpu_armv71.attributes        = "Device";
 mpu_armv71.allowExecute      = false;
 
 mpu_armv72.$name             = "CONFIG_MPU_REGION1";
@@ -72,21 +171,21 @@ mpu_armv73.size              = 15;
 mpu_armv73.accessPermissions = "Supervisor RD+WR, User RD";
 
 mpu_armv74.$name             = "CONFIG_MPU_REGION3";
-mpu_armv74.accessPermissions = "Supervisor RD+WR, User RD";
 mpu_armv74.baseAddr          = 0x70000000;
 mpu_armv74.size              = 21;
+mpu_armv74.accessPermissions = "Supervisor RD+WR, User RD";
 
 mpu_armv75.$name        = "CONFIG_MPU_REGION4";
-mpu_armv75.size         = 14;
 mpu_armv75.baseAddr     = 0x50D00000;
-mpu_armv75.allowExecute = false;
+mpu_armv75.size         = 14;
 mpu_armv75.attributes   = "Device";
+mpu_armv75.allowExecute = false;
 
 mpu_armv76.$name        = "CONFIG_MPU_REGION5";
-mpu_armv76.size         = 14;
-mpu_armv76.allowExecute = false;
-mpu_armv76.attributes   = "NonCached";
 mpu_armv76.baseAddr     = 0x72000000;
+mpu_armv76.size         = 14;
+mpu_armv76.attributes   = "NonCached";
+mpu_armv76.allowExecute = false;
 
 mpu_armv77.$name        = "CONFIG_MPU_REGION6";
 mpu_armv77.attributes   = "NonCached";
@@ -117,8 +216,8 @@ region1.memory_region[3].auto                = false;
 region1.memory_region[3].size                = 0x40000;
 region1.memory_region[4].$name               = "OCRAM";
 region1.memory_region[4].auto                = false;
-region1.memory_region[4].manualStartAddress  = 0x70040000;
-region1.memory_region[4].size                = 0x40000;
+region1.memory_region[4].manualStartAddress  = 0x70080000;
+region1.memory_region[4].size                = 0x80000;
 region1.memory_region[5].type                = "FLASH";
 region1.memory_region[5].auto                = false;
 region1.memory_region[5].manualStartAddress  = 0x60100000;
@@ -283,3 +382,46 @@ section12.type                        = "NOLOAD";
 section12.output_section.create(1);
 section12.output_section[0].$name     = ".bss.sipc_secure_host_queue_mem";
 section12.output_section[0].alignment = 0;
+
+/**
+ * Pinmux solution for unlocked pins/peripherals. This ensures that minor changes to the automatic solver in a future
+ * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
+ * re-solve from scratch.
+ */
+gpio1.GPIO_n.$suggestSolution                                           = "GPIO0";
+ethercat1["PRU-ICSS0-IEP"].$suggestSolution                             = "PRU-ICSS0-IEP";
+ethercat1["PRU-ICSS0-IEP"].PR0_IEP0_EDC_SYNC_OUT0.$suggestSolution      = "GPIO119";
+ethercat1["PRU-ICSS0-IEP"].PR0_IEP0_EDC_SYNC_OUT1.$suggestSolution      = "GPIO124";
+ethercat1["PRU-ICSS0-IEP"].PR0_IEP0_EDIO_DATA_IN_OUT30.$suggestSolution = "GPIO105";
+ethercat1["PRU-ICSS0"].$suggestSolution                                 = "PRU-ICSS0";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO8.$suggestSolution                  = "GPIO90";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO5.$suggestSolution                  = "GPIO87";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO6.$suggestSolution                  = "GPIO91";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO4.$suggestSolution                  = "GPIO92";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO0.$suggestSolution                  = "GPIO93";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO1.$suggestSolution                  = "GPIO94";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO2.$suggestSolution                  = "GPIO95";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO3.$suggestSolution                  = "GPIO96";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO16.$suggestSolution                 = "GPIO97";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO15.$suggestSolution                 = "GPIO98";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO11.$suggestSolution                 = "GPIO99";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO12.$suggestSolution                 = "GPIO100";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO13.$suggestSolution                 = "GPIO101";
+ethercat1["PRU-ICSS0"].PR0_PRU0_GPIO14.$suggestSolution                 = "GPIO102";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO8.$suggestSolution                  = "GPIO106";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO5.$suggestSolution                  = "GPIO103";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO6.$suggestSolution                  = "GPIO107";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO4.$suggestSolution                  = "GPIO108";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO0.$suggestSolution                  = "GPIO109";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO1.$suggestSolution                  = "GPIO110";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO2.$suggestSolution                  = "GPIO111";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO3.$suggestSolution                  = "GPIO112";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO16.$suggestSolution                 = "GPIO113";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO15.$suggestSolution                 = "GPIO114";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO11.$suggestSolution                 = "GPIO115";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO12.$suggestSolution                 = "GPIO116";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO13.$suggestSolution                 = "GPIO117";
+ethercat1["PRU-ICSS0"].PR0_PRU1_GPIO14.$suggestSolution                 = "GPIO118";
+ethercat1["PRU-ICSS0-MDIO"].$suggestSolution                            = "PRU-ICSS0-MDIO";
+ethercat1["PRU-ICSS0-MDIO"].PR0_MDIO0_MDIO.$suggestSolution             = "GPIO85";
+ethercat1["PRU-ICSS0-MDIO"].PR0_MDIO0_MDC.$suggestSolution              = "GPIO86";

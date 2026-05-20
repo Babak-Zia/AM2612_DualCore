@@ -2,8 +2,8 @@
  * core0_app.c — FreeRTOS master: policy, logging, timing, verification.
  * Transport: common/ipc_channel.c (zero-copy — read/write gIpcCh buffers in place).
  *
- * Drivers_open / Board_driversOpen run from main_core0.c before the scheduler.
- * IPC master init stays in core0_app_run() after vTaskStartScheduler() (SemaphoreP).
+ * Drivers_open / board_flash_reset / Board_driversOpen run at start of core0_app_run()
+ * (after scheduler). All DebugP_log calls run after that block.
  */
 
 #include <stdint.h>
@@ -13,8 +13,10 @@
 #include <kernel/dpl/SystemP.h>
 #include <kernel/dpl/ClockP.h>
 
-#include "ipc_channel.h"
+#include "ti_drivers_open_close.h"
+#include "ti_board_open_close.h"
 
+#include "ipc_channel.h"
 #include "core0_app.h"
 
 #define IPC_TEST_ITERATIONS    (50U)
@@ -162,6 +164,12 @@ void core0_app_run(void *args)
     uint32_t        iter = 0U;
 
     (void)args;
+
+    Drivers_open();
+#if (defined(CONFIG_OSPI_NUM_INSTANCES) && (CONFIG_OSPI_NUM_INSTANCES > 0))
+    board_flash_reset(gOspiHandle[CONFIG_OSPI0]);
+#endif
+    Board_driversOpen();
 
     core0_ipc_startup();
 
