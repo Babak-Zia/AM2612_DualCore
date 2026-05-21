@@ -20,7 +20,8 @@ AM2612_DualCore/
 ├── Core0-freertos/                      Core 0 (R5F-0) — EtherCAT bridge, FreeRTOS
 │   ├── src/
 │   │   ├── main_core0.c                 System/Board init + `ecat_main` task
-│   │   └── ecat_bridge_app.h / .c       board init, Plan A `fsoe_ipc_exchange_sync`, optional self-test
+│   │   ├── ecat_bridge_app.h / .c       board, IPC, optional self-test, `ethercat_subdevice_start()`
+│   │   └── EtherCAT/                    Babak SSC stack (TaskP `task1` / MainLoop)
 │   ├── example.syscfg                   SysConfig (drivers, MPU, memory, IPC, debug log)
 │   ├── .project / .cproject / .ccsproject   CCS project descriptors
 │   ├── targetConfigs/                   debug probe config (XDS-class)
@@ -69,9 +70,9 @@ main()                                         main()
        ├ Drivers_open / board_flash / Board_*       ├ ipc_channel_worker_init
        ├ ipc_channel_master_init                    ├ ipc_channel_sync_all() ◄──┐
        ├ ipc_channel_sync_all() ◄───────────────────┘                        │
-       ├ [optional] FSoE IPC self-test (50×)                                 │
-       │     fsoe_ipc_exchange_sync()  (Plan A)                                │
-       └ idle (until EtherCAT MainLoop wired in)                             │
+       ├ [optional] FSoE IPC self-test                                       │
+       └ ethercat_subdevice_start() → TaskP task1 (MainLoop) + PDI/LED/SYNC │
+       (this FreeRTOS task then exits)                                       │
                                                                               │
 Core 1: `for (;;)` → wait_request → fsoe_worker_process_payload → send_reply
 ```
@@ -127,11 +128,11 @@ Source of truth for behavior is the **block comments on each function** in `ipc_
 | 1 | Write `gIpcCh.req_buf[]` | — |
 | 2 | `seq = ipc_channel_master_commit_request()` | — |
 | 3 | `ipc_channel_master_send_request(seq, IPC_DOORBELL_SEND_FAST)` | ISR stores `seq` → main wakes |
-| 4 | `ipc_channel_master_wait_reply` **or** `ipc_channel_master_wait_reply_usec` | `seq = ipc_channel_worker_wait_request()` |
+| 4 | `ipc_channel_master_wait_reply_usec(timeoutUsec)` | `seq = ipc_channel_worker_wait_request()` |
 | 5 | (optional) check `gIpcCh.resp_seq == seq` | Read `req_buf`, compute into `resp_buf` |
 | 6 | Read `resp_buf` | `ipc_channel_worker_send_reply(seq, IPC_DOORBELL_SEND_FAST)` → master ISR posts sem |
 
-Use **`ipc_channel_master_wait_reply_usec`** when the budget is **shorter than one DPL tick** (default **1 ms/tick** → `IPC_MS_TO_TICKS(1)` is the minimum tick-based wait). The µs variant **busy-spins** with `SemaphoreP_pend(..., 0)` until the ISR fires or the deadline elapses — fine for hundreds of µs; for multi-millisecond waits prefer **`ipc_channel_master_wait_reply`** + **`IPC_MS_TO_TICKS`** so FreeRTOS can block without burning CPU.
+**`ipc_channel_master_wait_reply_usec`** busy-spins with `SemaphoreP_pend(..., 0)` until the ISR posts the semaphore or the microsecond deadline elapses (PDO/FSoE path uses **500 µs** in `ecat_bridge_app.h`).
 
 The **`seq`** value ties together: `req_seq` publish, notify payload, `resp_seq`, and application-level “which transaction is this?” checks (drops, stale replies).
 
@@ -140,11 +141,9 @@ The **`seq`** value ties together: `req_seq` publish, notify payload, `resp_seq`
 | Function | Core | Role |
 |---|---|---|
 | **`ipc_channel_master_init`** | 0 | Build binary semaphore (starts “taken” so first `pend` blocks); register **`IPC_CLIENT_ID`** so worker → master notifies run **`ipc_on_worker_reply`**, which **`SemaphoreP_post`**s the master task. |
-| **`ipc_channel_master_deinit`** | 0 | Destroy that semaphore. Does **not** unregister IpcNotify (this layer does not expose unregister). |
 | **`ipc_channel_master_commit_request`** | 0 | **Single-writer bump** of `gIpcCh.req_seq`. Call **after** filling `req_buf`, **before** `send_request`. Returns the new sequence used as the transaction id. |
 | **`ipc_channel_master_send_request(seq, waitFifoEmpty)`** | 0 | **`IpcNotify_sendMsg`** to **`IPC_CORE_WORKER`**. Pass **`IPC_DOORBELL_SEND_FAST`** for minimum latency (one in-flight notify); **`IPC_DOORBELL_SEND_WAIT`** if the mailbox FIFO might fill. |
-| **`ipc_channel_master_wait_reply(timeoutTicks)`** | 0 | **`SemaphoreP_pend`** — timeout in **DPL ticks** (default **1 ms/tick**). Minimum practical tick timeout ≈ **1 ms**. |
-| **`ipc_channel_master_wait_reply_usec(timeoutUsec)`** | 0 | **`ClockP_getTimeUsec`** deadline + **`SemaphoreP_pend(..., 0)`** spin. Use for **sub-millisecond** budgets (e.g. **200 µs**). Busy-waits until reply or timeout. |
+| **`ipc_channel_master_wait_reply_usec(timeoutUsec)`** | 0 | **`ClockP_getTimeUsec`** deadline + **`SemaphoreP_pend(..., 0)`** spin until reply or timeout. |
 | **`ipc_channel_worker_init`** | 1 | Clear pending-request flag; register **`IPC_CLIENT_ID`** so master → worker notifies run **`ipc_on_master_request`**, which stores the **32-bit payload** (`seq`) for the main loop. |
 | **`ipc_channel_worker_wait_request`** | 1 | **`WFI`** loop until `gWorkerNewReqSeq != 0`, then **clear** it and **return** `seq`. **Not** safe for nested/concurrent callers; one worker loop is assumed. If the master overruns the worker, only the **latest** seq is kept (single-slot flag). |
 | **`ipc_channel_worker_send_reply(seq, waitFifoEmpty)`** | 1 | Set **`gIpcCh.resp_seq = seq`**, then **`IpcNotify_sendMsg`** to **`IPC_CORE_MASTER`**. Call **after** `resp_buf` is fully written. Same **`FAST` / `WAIT`** trade-off as master send. |
@@ -161,7 +160,7 @@ The **`seq`** value ties together: `req_seq` publish, notify payload, `resp_seq`
 - No **cache maintenance** (assumes **`.bss.user_shared_mem`** is **non-cacheable** per MPU; if you change that, add **`CacheP_*`** in the app around buffer access).
 - No **payload validation** or **UART** output.
 
-For failure-mode terminology (freeze vs seq mismatch vs corrupt bytes), see **Sequence-number protocol** below (`ipc_channel_master_wait_reply` **or** `ipc_channel_master_wait_reply_usec`).
+For failure-mode terminology (freeze vs seq mismatch vs corrupt bytes), see **Sequence-number protocol** below (`ipc_channel_master_wait_reply_usec`).
 
 ---
 
@@ -171,8 +170,8 @@ Every transaction has a monotonically increasing `uint32_t` sequence number, set
 
 | Failure mode | Detection | Counter | Typical log (demo) |
 |---|---|---|---|
-| **Drop / stale** | `gIpcCh.resp_seq != expected_seq` after `ipc_channel_master_wait_reply` succeeds | `mis_seq` | `SEQ MISMATCH sent=… got=…` |
-| **Freeze** | `ipc_channel_master_wait_reply` **or** `ipc_channel_master_wait_reply_usec` returns non-success after timeout | `freezes` | `FREEZE …` |
+| **Drop / stale** | `gIpcCh.resp_seq != expected_seq` after `ipc_channel_master_wait_reply_usec` succeeds | `mis_seq` | `SEQ MISMATCH sent=… got=…` |
+| **Freeze** | `ipc_channel_master_wait_reply_usec` returns non-success after timeout | `freezes` | `FREEZE …` |
 | **Data corruption** | per-byte `resp_buf[i] != (uint8_t)(req_buf[i] + 1)` | `failed` | `FAIL … bytes wrong` |
 | **Success** | pend OK, `resp_seq` match, bytes verify | `passed` | `PASS seq=… RTT=…` |
 

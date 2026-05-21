@@ -90,8 +90,6 @@ ipc_channel_t gIpcCh
  *   constructed but client registration failed.
  *
  * Notes
- *   - Does not unregister IpcNotify on deinit path mismatch; pair with
- *     ipc_channel_master_deinit for semaphore cleanup only.
  *   - `crcStatus` in the callback is unused here; see TI `IpcNotify_FxnCallback`.
  */
 int32_t ipc_channel_master_init(void)
@@ -112,25 +110,6 @@ int32_t ipc_channel_master_init(void)
     }
 
     return SystemP_SUCCESS;
-}
-
-/*
- * ipc_channel_master_deinit
- *
- * What it does
- *   Destroys the binary semaphore created in ipc_channel_master_init.
- *
- * When to call
- *   When the master task is finished and you want clean teardown (optional in
- *   embedded targets that never power down).
- *
- * What it does NOT do
- *   Unregister the IpcNotify client; the driver API used here does not add an
- *   explicit unregister in this layer.
- */
-void ipc_channel_master_deinit(void)
-{
-    SemaphoreP_destruct(&gMasterRespSem);
 }
 
 /*
@@ -174,7 +153,7 @@ uint32_t ipc_channel_master_commit_request(void)
  * What it does
  *   Sends an IpcNotify message to `IPC_CORE_WORKER` for client `IPC_CLIENT_ID`.
  *
- * Does NOT block for the reply; use ipc_channel_master_wait_reply after this returns.
+ * Does NOT block for the reply; use ipc_channel_master_wait_reply_usec after this returns.
  */
 void ipc_channel_master_send_request(uint32_t seq, uint32_t waitFifoEmpty)
 {
@@ -182,46 +161,9 @@ void ipc_channel_master_send_request(uint32_t seq, uint32_t waitFifoEmpty)
 }
 
 /*
- * ipc_channel_master_wait_reply
- *
- * Parameters
- *   timeoutTicks
- *     DPL clock ticks for SemaphoreP_pend. With default SysConfig `usecPerTick == 1000`,
- *     one tick is one millisecond; use IPC_MS_TO_TICKS(ms) from the header for readability.
- *
- * What it does
- *   Blocks the calling task until either:
- *     - the worker reply ISR posts the binary semaphore, or
- *     - the timeout expires.
- *
- * Return value
- *   SystemP_SUCCESS if the semaphore was posted (worker replied at the notify level).
- *   The application must still verify `gIpcCh.resp_seq` matches the expected seq and
- *   that `resp_buf` is coherent (see README: freeze vs seq mismatch vs data errors).
- *
- * Does NOT read or validate buffer contents.
- */
-int32_t ipc_channel_master_wait_reply(uint32_t timeoutTicks)
-{
-    return SemaphoreP_pend(&gMasterRespSem, timeoutTicks);
-}
-
-/*
  * ipc_channel_master_wait_reply_usec
  *
- * Waits for the worker reply with a **microsecond** deadline.
- *
- * Why this exists
- *   `ipc_channel_master_wait_reply(timeoutTicks)` uses the DPL tick as the time base.
- *   With default SysConfig `usecPerTick == 1000`, one tick is **1 ms**, so you cannot
- *   express 200 µs (or any sub-millisecond timeout) accurately with ticks alone.
- *
- * How it works
- *   Tight loop: non-blocking `SemaphoreP_pend(..., 0)` until success, or until
- *   `ClockP_getTimeUsec() - t0 >= timeoutUsec`. This briefly busy-spins the master CPU
- *   while waiting (typically only a few µs until the ISR runs). Acceptable for very
- *   short timeouts; for multi-millisecond waits prefer `ipc_channel_master_wait_reply`
- *   with `IPC_MS_TO_TICKS` so the RTOS can block without burning cycles.
+ * Waits for the worker reply with a microsecond deadline (busy-poll + SemaphoreP_pend(0)).
  *
  * Return value
  *   `SystemP_SUCCESS` when the semaphore was posted; `SystemP_FAILURE` on timeout.

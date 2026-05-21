@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2022-23 Texas Instruments Incorporated
+ *  Copyright (C) 2021 Texas Instruments Incorporated
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted provided that the following conditions
@@ -30,44 +30,46 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <kernel/dpl/DebugP.h>
-#include "ti_drivers_config.h"
-#include "ti_board_config.h"
-#include "FreeRTOS.h"
-#include "task.h"
+#ifndef TIESC_DEF_H_
+#define TIESC_DEF_H_
 
-#include "ecat_bridge_app.h"
-
-#define ECAT_MAIN_TASK_PRI   (configMAX_PRIORITIES - 1)
-
-#define ECAT_MAIN_TASK_SIZE  (16384U / sizeof(configSTACK_DEPTH_TYPE))
-StackType_t  gEcatMainTaskStack[ECAT_MAIN_TASK_SIZE] __attribute__((aligned(32)));
-StaticTask_t gEcatMainTaskObj;
-TaskHandle_t gEcatMainTask;
-
-static void ecat_main_task(void *args)
+#ifdef __cplusplus
+extern "C"
 {
-    ecat_bridge_task(args);
-    /* Bridge returns after spawning EtherCAT TaskP tasks. */
-    vTaskDelete(NULL);
+#endif
+
+
+/**
+ECAT_TIMER_INT: If this switch is set, then the watchdog time for the EtherCAT watchdog will be checked in a timer interrupt routine. */
+#ifndef ECAT_TIMER_INT
+#define ECAT_TIMER_INT                          0
+#endif
+
+/**
+ESC_EEPROM_EMULATION: If this switch is set EEPROM emulation is supported. Not all ESC types support EEPROM emulation. See ESC datasheet for more information. */
+#ifndef ESC_EEPROM_EMULATION
+#define ESC_EEPROM_EMULATION                    1
+#endif
+
+#ifndef ESC_SYSTEMTIME_OFFSET
+#define ESC_SYSTEMTIME_OFFSET                   0x0910
+#endif
+
+#ifndef ESC_DC_SYNC_ACTIVATION_OFFSET
+#define ESC_DC_SYNC_ACTIVATION_OFFSET           0x0981
+#endif
+
+#ifndef ESC_DC_SYNC0_CYCLETIME_OFFSET
+#define ESC_DC_SYNC0_CYCLETIME_OFFSET           0x09A0
+#endif
+
+#ifndef ESC_DC_SYNC1_CYCLETIME_OFFSET
+#define ESC_DC_SYNC1_CYCLETIME_OFFSET           0x09A4
+#endif
+
+
+#ifdef __cplusplus
 }
+#endif
 
-int main(void)
-{
-    System_init();
-    Board_init();
-
-    gEcatMainTask = xTaskCreateStatic(ecat_main_task,
-                                      "ecat_main",
-                                      ECAT_MAIN_TASK_SIZE,
-                                      NULL,
-                                      ECAT_MAIN_TASK_PRI,
-                                      gEcatMainTaskStack,
-                                      &gEcatMainTaskObj);
-    configASSERT(gEcatMainTask != NULL);
-
-    vTaskStartScheduler();
-
-    DebugP_assertNoLog(0);
-    return 0;
-}
+#endif /* TIESC_DEF_H_*/

@@ -22,6 +22,7 @@
 
 #include "ipc_channel.h"
 #include "ecat_bridge_app.h"
+#include "tiescutils.h"
 
 /* -------------------------------------------------------------------------- */
 /* Board + IPC bring-up                                                       */
@@ -225,20 +226,6 @@ static void fsoe_ipc_self_test_run(void)
 #endif /* DUALCORE_IPC_SELF_TEST */
 
 /* -------------------------------------------------------------------------- */
-/* Idle until EtherCAT MainLoop is integrated                                 */
-/* -------------------------------------------------------------------------- */
-
-static void ecat_bridge_idle_loop(void)
-{
-    DebugP_log("[ECAT] idle — integrate EtherCAT stack here\r\n");
-
-    for (;;)
-    {
-        vTaskDelay(pdMS_TO_TICKS(1000U));
-    }
-}
-
-/* -------------------------------------------------------------------------- */
 /* Task entry                                                                 */
 /* -------------------------------------------------------------------------- */
 
@@ -253,5 +240,11 @@ void ecat_bridge_task(void *args)
     fsoe_ipc_self_test_run();
 #endif
 
-    ecat_bridge_idle_loop();
+    DebugP_log("[ECAT] starting EtherCAT stack (TaskP MainLoop)...\r\n");
+    ethercat_subdevice_start();
+
+    /*
+     * EtherCAT runs in TaskP task1 (and PDI/LED/SYNC tasks from task1_init).
+     * This FreeRTOS task exits; main_core0 deletes it (same pattern as Babak).
+     */
 }

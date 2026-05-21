@@ -28,7 +28,7 @@
 /** Plan A sync exchange on gIpcCh (fill req_buf before calling). */
 int32_t fsoe_ipc_exchange_sync(uint32_t *rtt_us_out);
 
-/** FreeRTOS task entry — board init, IPC bring-up, optional self-test, then idle. */
+/** FreeRTOS task entry — board, IPC, optional self-test, EtherCAT TaskP stack. */
 void ecat_bridge_task(void *args);
 
 #endif /* ECAT_BRIDGE_APP_H */

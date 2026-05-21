@@ -46,12 +46,17 @@
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/kernel/freertos/config/am261x/r5f"/>
                                     <listOptionValue value="${ProjDirPath}/../common"/>
                                     <listOptionValue value="${ProjDirPath}/src"/>
+                                    <listOptionValue value="${ProjDirPath}/src/EtherCAT"/>
+                                    <listOptionValue value="${ProjDirPath}/src/EtherCAT/SSC/Src"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.DEFINE.1325420409" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.DEFINE" valueType="definedSymbols">
                                     <listOptionValue value="${SYSCONFIG_TOOL_SYMBOLS}"/>
                                     <listOptionValue value="${COM_TI_MCU_PLUS_SDK_AM261X_SYMBOLS}"/>
                                     <listOptionValue value="SOC_AM261X"/>
                                     <listOptionValue value="OS_FREERTOS"/>
+                                    <listOptionValue value="TIESC_APPLICATION=1"/>
+                                    <listOptionValue value="MAX_PD_INPUT_SIZE=0x1D"/>
+                                    <listOptionValue value="MAX_PD_OUTPUT_SIZE=0x1D"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MCPU.1920564963" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MCPU" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MCPU.cortex-r5" valueType="enumerated"/>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MFLOAT_ABI.1748827531" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MFLOAT_ABI" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MFLOAT_ABI.hard" valueType="enumerated"/>
@@ -107,6 +112,9 @@
                             </tool>
                         </toolChain>
                     </folderInfo>
+                    <sourceEntries>
+                        <entry excluding="src/EtherCAT/SSC/Src/SSC-AM2612.c|src/EtherCAT/tiescbsp.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+                    </sourceEntries>
                 </configuration>
             </storageModule>
             <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
@@ -115,6 +123,7 @@
             <storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.119124361" moduleId="org.eclipse.cdt.core.settings" name="Debug">
                 <macros>
                     <stringMacro name="MCU_PLUS_SDK_PATH" type="VALUE_PATH_ANY" value="${COM_TI_MCU_PLUS_SDK_AM261X_INSTALL_DIR}"/>
+                    <stringMacro name="INDUSTRIAL_COMMUNICATIONS_SDK_PATH" type="VALUE_PATH_ANY" value="${COM_TI_INDUSTRIAL_COMMUNICATIONS_SDK_AM261X_INSTALL_DIR}/ind_comms_sdk_am261x_2025_00_00_08"/>
                 </macros>
                 <externalSettings/>
                 <extensions>
@@ -126,7 +135,7 @@
                 </extensions>
             </storageModule>
             <storageModule moduleId="cdtBuildSystem" version="4.0.0">
-                <configuration artifactExtension="out" artifactName="${ProjName}" buildProperties="" cleanCommand="${CG_CLEAN_CMD}" description="" id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.119124361" name="Debug" parent="com.ti.ccstudio.buildDefinitions.TMS470.Debug" postbuildStep="$(MAKE) -C ${CCS_PROJECT_DIR} -f makefile_ccs_bootimage_gen OUTNAME=${BuildArtifactFileBaseName} PROFILE=${ConfigName} MCU_PLUS_SDK_PATH=${MCU_PLUS_SDK_PATH} CG_TOOL_ROOT=${CG_TOOL_ROOT} CCS_INSTALL_DIR=${CCS_INSTALL_DIR} CCS_IDE_MODE=${CCS_IDE_MODE} DEVICE=am261x">
+                <configuration artifactExtension="out" artifactName="${ProjName}" buildProperties="" cleanCommand="${CG_CLEAN_CMD}" description="" id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.119124361" name="Debug" parent="com.ti.ccstudio.buildDefinitions.TMS470.Debug" postbuildStep="$(MAKE) -C ${CCS_PROJECT_DIR} -f makefile_ccs_bootimage_gen OUTNAME=${BuildArtifactFileBaseName} PROFILE=${ConfigName} INDUSTRIAL_COMMUNICATIONS_SDK_PATH=${INDUSTRIAL_COMMUNICATIONS_SDK_PATH} MCU_PLUS_SDK_PATH=${MCU_PLUS_SDK_PATH} CG_TOOL_ROOT=${CG_TOOL_ROOT} CCS_INSTALL_DIR=${CCS_INSTALL_DIR} CCS_IDE_MODE=${CCS_IDE_MODE} DEVICE=am261x">
                     <folderInfo id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.119124361." name="/" resourcePath="">
                         <toolChain id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.DebugToolchain.1757053471" name="TI Build Tools" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.DebugToolchain" targetTool="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.exe.linkerDebug.1922870861">
                             <option id="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS.1112630425" superClass="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS" valueType="stringList">
@@ -157,6 +166,9 @@
                                     <listOptionValue value="${MCU_PLUS_SDK_PATH}/source/kernel/freertos/config/am261x/r5f"/>
                                     <listOptionValue value="${ProjDirPath}/../common"/>
                                     <listOptionValue value="${ProjDirPath}/src"/>
+                                    <listOptionValue value="${ProjDirPath}/src/EtherCAT"/>
+                                    <listOptionValue value="${ProjDirPath}/src/EtherCAT/SSC/Src"/>
+                                    <listOptionValue value="${ProjDirPath}/src/EtherCAT/board"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.DEFINE.1865770532" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.DEFINE" valueType="definedSymbols">
                                     <listOptionValue value="${COM_TI_INDUSTRIAL_COMMUNICATIONS_SDK_AM261X_SYMBOLS}"/>
@@ -165,6 +177,9 @@
                                     <listOptionValue value="SOC_AM261X"/>
                                     <listOptionValue value="OS_FREERTOS"/>
                                     <listOptionValue value="_DEBUG_=1"/>
+                                    <listOptionValue value="TIESC_APPLICATION=1"/>
+                                    <listOptionValue value="MAX_PD_INPUT_SIZE=0x1D"/>
+                                    <listOptionValue value="MAX_PD_OUTPUT_SIZE=0x1D"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MCPU.1263450349" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MCPU" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MCPU.cortex-r5" valueType="enumerated"/>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MFLOAT_ABI.1014445173" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MFLOAT_ABI" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MFLOAT_ABI.hard" valueType="enumerated"/>
@@ -184,6 +199,7 @@
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.linkerID.DIAG_WRAP.2093757718" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.linkerID.DIAG_WRAP" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.linkerID.DIAG_WRAP.off" valueType="enumerated"/>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.linkerID.REREAD_LIBS.1253222885" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.linkerID.REREAD_LIBS" value="true" valueType="boolean"/>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.linkerID.SEARCH_PATH.1078979770" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.linkerID.SEARCH_PATH" valueType="libPaths">
+                                    <listOptionValue value="${ProjDirPath}/lib"/>
                                     <listOptionValue value="${COM_TI_INDUSTRIAL_COMMUNICATIONS_SDK_AM261X_LIBRARY_PATH}"/>
                                     <listOptionValue value="${SYSCONFIG_TOOL_LIBRARY_PATH}"/>
                                     <listOptionValue value="${COM_TI_MCU_PLUS_SDK_AM261X_LIBRARY_PATH}"/>
@@ -199,6 +215,7 @@
                                     <listOptionValue value="freertos.am261x.r5f.ti-arm-clang.debug.lib"/>
                                     <listOptionValue value="drivers.am261x.r5f.ti-arm-clang.freertos.debug.lib"/>
                                     <listOptionValue value="board.am261x.r5f.ti-arm-clang.freertos.debug.lib"/>
+                                    <listOptionValue value="ethercat_subdevice_icss_fwhal.am261x.r5f.ti-arm-clang.debug.lib"/>
                                     <listOptionValue value="libc.a"/>
                                     <listOptionValue value="libsysbm.a"/>
                                 </option>
@@ -222,6 +239,9 @@
                             </tool>
                         </toolChain>
                     </folderInfo>
+                    <sourceEntries>
+                        <entry excluding="src/EtherCAT/SSC/Src/SSC-AM2612.c|src/EtherCAT/tiescbsp.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+                    </sourceEntries>
                 </configuration>
             </storageModule>
             <storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>

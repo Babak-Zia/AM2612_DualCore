@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2022-23 Texas Instruments Incorporated
+ *  Copyright (C) 2021-2025 Texas Instruments Incorporated
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted provided that the following conditions
@@ -30,44 +30,35 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <kernel/dpl/DebugP.h>
-#include "ti_drivers_config.h"
-#include "ti_board_config.h"
-#include "FreeRTOS.h"
-#include "task.h"
+/* ========================================================================== */
+/*                             Include Files                                  */
+/* ========================================================================== */
 
-#include "ecat_bridge_app.h"
+#include "tiescbsp.h"
+#if defined (SOC_AM263PX) || defined (SOC_AM261X)
+#include "ti_drivers_open_close.h"
+#endif
+#include "tieschw.h"
 
-#define ECAT_MAIN_TASK_PRI   (configMAX_PRIORITIES - 1)
+/* ========================================================================== */
+/*                       Function Declarations                                */
+/* ========================================================================== */
 
-#define ECAT_MAIN_TASK_SIZE  (16384U / sizeof(configSTACK_DEPTH_TYPE))
-StackType_t  gEcatMainTaskStack[ECAT_MAIN_TASK_SIZE] __attribute__((aligned(32)));
-StaticTask_t gEcatMainTaskObj;
-TaskHandle_t gEcatMainTask;
+void task1(void *arg);
 
-static void ecat_main_task(void *args)
-{
-    ecat_bridge_task(args);
-    /* Bridge returns after spawning EtherCAT TaskP tasks. */
-    vTaskDelete(NULL);
-}
+#ifdef ENABLE_PDI_TASK
+void PDItask(void *arg);
+#endif
+#if AL_EVENT_ENABLED
+void HW_EcatIsr(void);
+#endif
 
-int main(void)
-{
-    System_init();
-    Board_init();
+void LEDtask(void *arg);
 
-    gEcatMainTask = xTaskCreateStatic(ecat_main_task,
-                                      "ecat_main",
-                                      ECAT_MAIN_TASK_SIZE,
-                                      NULL,
-                                      ECAT_MAIN_TASK_PRI,
-                                      gEcatMainTaskStack,
-                                      &gEcatMainTaskObj);
-    configASSERT(gEcatMainTask != NULL);
+#ifdef ENABLE_SYNC_TASK
+void Sync0task(void *arg);
+void Sync1task(void *arg);
+#endif
 
-    vTaskStartScheduler();
-
-    DebugP_assertNoLog(0);
-    return 0;
-}
+/** SoC + TaskP EtherCAT tasks (drivers/board must already be open). */
+void ethercat_subdevice_start(void);

@@ -60,22 +60,14 @@ extern ipc_channel_t gIpcCh;
 /** @see ipc_channel.c — construct semaphore + register reply notify client. */
 int32_t ipc_channel_master_init(void);
 
-/** @see ipc_channel.c — destroy master semaphore. */
-void    ipc_channel_master_deinit(void);
-
 /** @see ipc_channel.c — publish new req_seq after filling req_buf; returns new seq. */
 uint32_t ipc_channel_master_commit_request(void);
 
 /** @see ipc_channel.c — doorbell worker with transaction id `seq`. */
 void ipc_channel_master_send_request(uint32_t seq, uint32_t waitFifoEmpty);
 
-/** @see ipc_channel.c — block until reply ISR or timeout (DPL ticks, ≥1 ms/tick default). */
-int32_t ipc_channel_master_wait_reply(uint32_t timeoutTicks);
-
 /**
  * Wait for worker reply with a microsecond timeout (busy-poll + SemaphoreP_pend(0)).
- * Use when the timeout is shorter than the DPL tick period (e.g. 200 us with 1 ms/tick).
- * For multi-ms waits, prefer ipc_channel_master_wait_reply + IPC_MS_TO_TICKS.
  */
 int32_t ipc_channel_master_wait_reply_usec(uint32_t timeoutUsec);
 

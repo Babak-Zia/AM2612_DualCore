@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2022-23 Texas Instruments Incorporated
+ *  Copyright (C) 2021-2025 Texas Instruments Incorporated
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted provided that the following conditions
@@ -30,44 +30,34 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <kernel/dpl/DebugP.h>
-#include "ti_drivers_config.h"
-#include "ti_board_config.h"
-#include "FreeRTOS.h"
-#include "task.h"
+#ifndef ETHERCAT_APP_H_
+#define ETHERCAT_APP_H_
 
-#include "ecat_bridge_app.h"
+#include <stdint.h>
 
-#define ECAT_MAIN_TASK_PRI   (configMAX_PRIORITIES - 1)
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#define ECAT_MAIN_TASK_SIZE  (16384U / sizeof(configSTACK_DEPTH_TYPE))
-StackType_t  gEcatMainTaskStack[ECAT_MAIN_TASK_SIZE] __attribute__((aligned(32)));
-StaticTask_t gEcatMainTaskObj;
-TaskHandle_t gEcatMainTask;
+/** PDO byte length for the 0x1A00 / 0x1600 process-data image (232 bits). */
+#define ETHERCAT_APP_PDO_IMAGE_BYTES   (29U)
 
-static void ecat_main_task(void *args)
-{
-    ecat_bridge_task(args);
-    /* Bridge returns after spawning EtherCAT TaskP tasks. */
-    vTaskDelete(NULL);
+/**
+ * \brief Decode master output process data (RxPDO / outputs) into application variables.
+ *
+ * \param pdo_rx Points to the received PDO buffer (ETHERCAT_APP_PDO_IMAGE_BYTES bytes).
+ */
+void manage_pdo_rx(uint8_t *pdo_rx);
+
+/**
+ * \brief Encode application variables into slave input process data (TxPDO / inputs).
+ *
+ * \param pdo_tx Points to the transmit PDO buffer (ETHERCAT_APP_PDO_IMAGE_BYTES bytes).
+ */
+void manage_pdo_tx(uint8_t *pdo_tx);
+
+#ifdef __cplusplus
 }
+#endif
 
-int main(void)
-{
-    System_init();
-    Board_init();
-
-    gEcatMainTask = xTaskCreateStatic(ecat_main_task,
-                                      "ecat_main",
-                                      ECAT_MAIN_TASK_SIZE,
-                                      NULL,
-                                      ECAT_MAIN_TASK_PRI,
-                                      gEcatMainTaskStack,
-                                      &gEcatMainTaskObj);
-    configASSERT(gEcatMainTask != NULL);
-
-    vTaskStartScheduler();
-
-    DebugP_assertNoLog(0);
-    return 0;
-}
+#endif /* ETHERCAT_APP_H_ */

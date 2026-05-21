@@ -11,4 +11,20 @@ GEN_FILES__QUOTED += \
 
 GEN_FILES__QUOTED += \
 *.mcelf* \
-*.mcelf_xip 
+*.mcelf_xip
+
+# Industrial Comms SDK root (matches INDUSTRIAL_COMMUNICATIONS_SDK_PATH in .cproject).
+IND_SDK_ROOT := C:/Projects/Am2612/ind_comms_sdk_am261x_2025_00_00_08/ind_comms_sdk_am261x_2025_00_00_08
+
+# CCS-generated subdir_rules.mk may emit broken -I"/source/..." when
+# INDUSTRIAL_COMMUNICATIONS_SDK_PATH is undefined; patch after regeneration:
+IND_SDK_INCLUDES := \
+ -I"$(IND_SDK_ROOT)/source" \
+ -I"$(IND_SDK_ROOT)/source/industrial_comms/ethercat_subdevice/beckhoff_stack/stack_sources" \
+ -I"$(IND_SDK_ROOT)/source/industrial_comms/ethercat_subdevice/beckhoff_stack/stack_hal" \
+ -I"$(IND_SDK_ROOT)/examples/industrial_comms/ethercat_subdevice_beckhoff_ssc_demo"
+
+IND_SDK_LIBPATH := -Wl,-i"$(IND_SDK_ROOT)/source/industrial_comms/ethercat_subdevice/icss_fwhal/lib"
+
+# Project-local copy of ethercat_subdevice_icss_fwhal (see Core0-freertos/lib/).
+PROJECT_LIBPATH := -Wl,-i"C:/Projects/Am2612/AM2612_DualCore/Core0-freertos/lib"
