@@ -10,7 +10,7 @@
  *
  * WHAT BELONGS HERE
  *   Low-level transport only. No UART logging, no `Drivers_open`, no business logic,
- *   no verification of buffer contents. Application code lives in core0_app.c / core1_app.c.
+ *   no verification of buffer contents. Application code lives under each core's src/ folder.
  *
  * PROTOCOL (single in-flight transaction)
  *   Master: fill `gIpcCh.req_buf` → `ipc_channel_master_commit_request()` publishes
@@ -304,7 +304,7 @@ int32_t ipc_channel_worker_init(void)
  * Notes
  *   - Not interrupt-safe for concurrent callers; single worker loop expected.
  *   - If the master floods notifies faster than the worker clears this flag, only
- *     the latest seq is retained (lossy); the protocol in core0_app assumes one
+ *     the latest seq is retained (lossy); the protocol in ecat_bridge_app assumes one
  *     in-flight request at a time.
  */
 uint32_t ipc_channel_worker_wait_request(void)
@@ -352,7 +352,7 @@ void ipc_channel_worker_send_reply(uint32_t seq, uint32_t waitFifoEmpty)
  *   neither core sends traffic before the peer is ready.
  *
  * When to call
- *   Typically once at startup from both core0_app and core1_app, after init and
+ *   Typically once at startup from both ecat_bridge_app and fsoe_worker_app, after init and
  *   before the main request/response loop.
  */
 void ipc_channel_sync_all(void)

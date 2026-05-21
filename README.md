@@ -1,6 +1,6 @@
-# AM2612 Dual-Core IPC Ping-Pong
+# AM2612 Dual-Core — EtherCAT Bridge + FSoE Worker
 
-Real-time inter-core data exchange demo for the **TI AM2612** SoC running two ARM Cortex-R5F cores. Core 0 (FreeRTOS) acts as a master/scheduler that periodically pushes a buffer to Core 1 (NoRTOS), which processes it and returns the result. The demo measures round-trip latency and validates data integrity with per-byte verification and sequence-number-based drop/freeze detection.
+Dual-core firmware for the **TI AM2612**: Core 0 (FreeRTOS) is the **EtherCAT bridge**; Core 1 (NoRTOS) is the **FSoE safety worker**. Inter-core traffic uses **`common/ipc_channel`** (shared SRAM + IpcNotify doorbell, Plan A same-cycle sync exchange). An optional startup **IPC self-test** validates the path before EtherCAT sources are integrated.
 
 The transport is the lowest-latency IPC available on this SoC: a shared SRAM region for the data plus the hardware **Mailbox** peripheral (wrapped by `IpcNotify`) for doorbell signaling. There is **no** RPMessage / virtio overhead in the critical path.
 
@@ -17,17 +17,19 @@ AM2612_DualCore/
 ├── common/                              Shared transport (linked into both core projects)
 │   ├── ipc_channel.h / ipc_channel.c    **Production path** — zero-copy `gIpcCh` + IpcNotify
 │
-├── Core0-freertos/                      Core 0 (R5F-0) - master, FreeRTOS
-│   ├── main_core0.c                     entry point + FreeRTOS task creation
-│   ├── core0_app.h / core0_app.c      master: startup helpers + IPC loop + summary
+├── Core0-freertos/                      Core 0 (R5F-0) — EtherCAT bridge, FreeRTOS
+│   ├── src/
+│   │   ├── main_core0.c                 System/Board init + `ecat_main` task
+│   │   └── ecat_bridge_app.h / .c       board init, Plan A `fsoe_ipc_exchange_sync`, optional self-test
 │   ├── example.syscfg                   SysConfig (drivers, MPU, memory, IPC, debug log)
 │   ├── .project / .cproject / .ccsproject   CCS project descriptors
 │   ├── targetConfigs/                   debug probe config (XDS-class)
 │   └── Debug/                           (auto-generated build output, gitignored)
 │
-├── Core1_nortos/                        Core 1 (R5F-1) - worker, NoRTOS
-│   ├── main_core1.c                     entry point - calls core1_app_run()
-│   ├── core1_app.c                      worker loop + process_buffer swap-point
+├── Core1_nortos/                        Core 1 (R5F-1) — FSoE worker, NoRTOS
+│   ├── src/
+│   │   ├── main_core1.c                 entry point → `fsoe_worker_main()`
+│   │   └── fsoe_worker_app.h / .c       service loop + `fsoe_worker_process_payload()` swap-point
 │   ├── example.syscfg                   SysConfig for Core 1
 │   └── (mirrors Core0-freertos/ structure)
 │
@@ -38,7 +40,7 @@ AM2612_DualCore/
 
 `common/ipc_channel.c` is **linked** into both CCS projects (see `.project` → `linkedResources`).
 
-`core0_app.c` / `core1_app.c` use **`ipc_channel` only**: they read and write **`gIpcCh.req_buf` / `gIpcCh.resp_buf` directly** (no extra `memcpy` in the hot path). Doorbells use **`IPC_DOORBELL_SEND_FAST` (0)** from `ipc_channel.h` for minimum mailbox latency with **one transaction in flight** per direction; switch to **`IPC_DOORBELL_SEND_WAIT` (1)** if you pipeline multiple notifies and see drops.
+`Core0-freertos/src/ecat_bridge_app.c` and `Core1_nortos/src/fsoe_worker_app.c` use **`ipc_channel` only**: they read and write **`gIpcCh.req_buf` / `gIpcCh.resp_buf` directly** (no extra `memcpy` in the hot path). Doorbells use **`IPC_DOORBELL_SEND_FAST` (0)** from `ipc_channel.h` for minimum mailbox latency with **one transaction in flight** per direction; switch to **`IPC_DOORBELL_SEND_WAIT` (1)** if you pipeline multiple notifies and see drops.
 
 ---
 
@@ -62,27 +64,16 @@ Core 0 (FreeRTOS, R5F-0)                       Core 1 (NoRTOS, R5F-1)
 ─────────────────────────                      ─────────────────────────
 main()                                         main()
  ├ System_init / Board_init                     ├ System_init / Board_init
- ├ Drivers_open / Board_driversOpen             └ core1_app_run()
- └ xTaskCreateStatic(freertos_main)                 ├ Drivers_open
-   └ freertos_main()                                ├ Board_driversOpen
-     └ core0_app_run()                              ├ ipc_channel_worker_init
-       ├ srand(...)                                 ├ ipc_channel_sync_all()
-       ├ ipc_channel_master_init                    │
-       ├ ipc_channel_sync_all() ◄───────────────────┘
-       └ for iter = 0 .. N-1:
-         ┌─ fill req_buf with rand()
-         │   ipc_channel_master_commit_request
-         │   t0 = ClockP_getTimeUsec()
-         │   ipc_channel_master_send_request(FAST)
-         │   ipc_channel_master_wait_reply_usec
-         │   t1 = ClockP_getTimeUsec()
-         │   verify resp_buf[i] == req_buf[i] + 1
-         │   print PASS/FAIL + RTT us
-         └─ ClockP_usleep(IPC_PERIOD_MS * 1000)
-
-       Final summary + ipc_channel_master_deinit()
-
-Core 1 (right column, after sync): `for (;;)` → wait request → process_buffer → send_reply → WFI.
+ └ xTaskCreateStatic(ecat_main)                 └ fsoe_worker_main()
+   └ ecat_bridge_task()                             ├ Drivers_open / Board_driversOpen
+       ├ Drivers_open / board_flash / Board_*       ├ ipc_channel_worker_init
+       ├ ipc_channel_master_init                    ├ ipc_channel_sync_all() ◄──┐
+       ├ ipc_channel_sync_all() ◄───────────────────┘                        │
+       ├ [optional] FSoE IPC self-test (50×)                                 │
+       │     fsoe_ipc_exchange_sync()  (Plan A)                                │
+       └ idle (until EtherCAT MainLoop wired in)                             │
+                                                                              │
+Core 1: `for (;;)` → wait_request → fsoe_worker_process_payload → send_reply
 ```
 
 ### Why this is fast
@@ -97,7 +88,7 @@ Core 1 (right column, after sync): `for (;;)` → wait request → process_buffe
 | `WFI` on worker | Lowest-power, lowest-jitter wake on ISR |
 | `.bss.user_shared_mem` is non-cacheable (MPU) | Zero `CacheP_*` calls in the hot path |
 
-Expected wake-up RTT (excluding `process_buffer` time): **~3-7 µs** for the doorbell/IRQ/semaphore chain alone. Total RTT also includes the time to actually write/read 1024 bytes of SRAM and run `process_buffer` (currently a 1024-byte add).
+Expected wake-up RTT (excluding `fsoe_worker_process_payload` time): **~3-7 µs** for the doorbell/IRQ/semaphore chain alone. Total RTT also includes the time to read/write `IPC_BUF_LEN` bytes of SRAM and run the worker stub (currently a per-byte increment).
 
 ---
 
@@ -109,8 +100,8 @@ typedef struct
     volatile uint32_t req_seq;           // Core 0 writes, Core 1 reads
     volatile uint32_t resp_seq;          // Core 1 writes, Core 0 reads
     volatile uint32_t _reserved[14];     // keeps buffers off the seq cache cluster
-    uint8_t           req_buf [IPC_BUF_LEN];  // 1024 bytes, Core 0 -> Core 1
-    uint8_t           resp_buf[IPC_BUF_LEN];  // 1024 bytes, Core 1 -> Core 0
+    uint8_t           req_buf [IPC_BUF_LEN];  // 512 bytes (IPC_BUF_LEN), Core 0 -> Core 1
+    uint8_t           resp_buf[IPC_BUF_LEN];  // 512 bytes, Core 1 -> Core 0
 } ipc_channel_t;
 
 ipc_channel_t gIpcCh __attribute__((aligned(128),
@@ -126,7 +117,7 @@ Source of truth for behavior is the **block comments on each function** in `ipc_
 #### Prerequisites
 
 - Call **`Drivers_open()`** (and normally **`Board_driversOpen()`**) on each core *before* **`ipc_channel_*_init`**, **`ipc_channel_sync_all`**, or any **`ipc_channel_*_send_*`**. IpcNotify depends on SysConfig-generated driver init.
-- On Core 0, **`Drivers_open()`** / **`Board_driversOpen()`** run in **`main()`** before **`vTaskStartScheduler()`**. **`srand()`**, **`ipc_channel_master_init()`**, and **`ipc_channel_sync_all()`** run at the start of **`core0_app_run()`** after the scheduler is up — **`ipc_channel_master_init()`** uses RTOS-backed **`SemaphoreP`** and must not run from **`main()`** before the scheduler starts.
+- On Core 0, **`Drivers_open()`** / **`Board_driversOpen()`** run at the start of **`ecat_bridge_task()`** after **`vTaskStartScheduler()`**. **`ipc_channel_master_init()`** and **`ipc_channel_sync_all()`** run there too — **`ipc_channel_master_init()`** uses RTOS-backed **`SemaphoreP`** and must not run from **`main()`** before the scheduler starts.
 - **`ipc_channel_sync_all()`** must run on **both** cores **after** each side has called its `*_init`, so neither core sends doorbells before the peer has registered its notify client.
 
 #### One transaction, correct order
@@ -239,13 +230,14 @@ Two cheap ways to relax the constraint:
 
 ## Tuning knobs
 
-Application timing and iteration count are in `Core0-freertos/core0_app.c`:
+Application knobs are in `Core0-freertos/src/ecat_bridge_app.h`:
 
 | `#define` | Default | Meaning |
 |---|---|---|
-| `IPC_PERIOD_MS` | `1000U` | master loop period |
-| `IPC_RESP_TIMEOUT_US` | `200U` | reply wait budget in **microseconds** (`ipc_channel_master_wait_reply_usec`) |
-| `IPC_TEST_ITERATIONS` | `50U` | total transactions (`0` = run forever) |
+| `DUALCORE_IPC_SELF_TEST` | `1U` | run bring-up ping-pong before idle (`0` when EtherCAT owns IPC) |
+| `DUALCORE_IPC_SELF_TEST_PERIOD_MS` | `100U` | delay between self-test iterations |
+| `DUALCORE_IPC_SELF_TEST_ITERS` | `50U` | self-test transaction count |
+| `FSOE_IPC_REPLY_TIMEOUT_US` | `500U` | Plan A reply budget (`fsoe_ipc_exchange_sync`) |
 
 Transport constants (`IPC_BUF_LEN`, `IPC_CLIENT_ID`, core IDs, `IPC_MS_TO_TICKS`) are in `common/ipc_channel.h` — change there when both sides must agree.
 
@@ -265,14 +257,14 @@ This sets the minimum non-zero FreeRTOS delay to one tick = 1 ms. To run the loo
 ### 1. Reduce the period
 
 ```c
-#define IPC_PERIOD_MS  (1U)
+#define DUALCORE_IPC_SELF_TEST_PERIOD_MS  (1U)
 ```
 
 ### 2. Silence per-iteration logging
 
 On Core 0 every `DebugP_log` call **blocks the calling task** on the UART, byte-by-byte — about **5 ms for a 60-character line** at 115200 baud. At a 1 ms period the UART is 5× too slow, and the loop overruns. See [Console logging architecture](#console-logging-architecture) for the full breakdown.
 
-At `IPC_PERIOD_MS = 1`, log only summary and failures on Core 0:
+At `DUALCORE_IPC_SELF_TEST_PERIOD_MS = 1`, log only summary and failures on Core 0:
 
 ```c
 if (bad == 0U) {
@@ -304,27 +296,17 @@ Below ~10 µs period the doorbell round-trip itself becomes the limit. At that p
 
 ---
 
-## Swap-point: the `process_buffer` function
+## Swap-point: `fsoe_worker_process_payload`
 
-Single `static` function in `Core1_nortos/core1_app.c`:
-
-```c
-static void process_buffer(const uint8_t *in, uint8_t *out, uint32_t len)
-{
-    for (uint32_t i = 0U; i < len; i++)
-    {
-        out[i] = (uint8_t)(in[i] + 1U);
-    }
-}
-```
+Single `static` function in `Core1_nortos/src/fsoe_worker_app.c` — replace with the real FSoE handler.
 
 **Contract**:
-- read `len` bytes from `in`
-- write `len` bytes to `out`
-- must not modify `in`
-- must finish before returning (no async, no further IPC)
+- read `len` bytes from `req`
+- write `len` bytes to `resp`
+- must not modify `req`
+- must finish before returning (Plan A: Core 0 blocks on `fsoe_ipc_exchange_sync()`)
 
-Anything that fits that contract — DSP routines, an inference graph, a CRC, an encryption pass — can drop in without touching the protocol, sequence numbering, RTT measurement, or master code. The master's verification step (`resp[i] == req[i] + 1`) must be updated to match whatever `process_buffer` actually computes.
+The EtherCAT bridge will pack/unpack FSoE bytes into `gIpcCh.req_buf` / `resp_buf` from the PDO image; the worker only runs the safety protocol on that slice.
 
 ---
 
@@ -332,7 +314,7 @@ Anything that fits that contract — DSP routines, an inference graph, a CRC, an
 
 `.bss.user_shared_mem` is **non-cacheable** under the default SysConfig MPU map on AM2612, so the producer/consumer paths in the current code do **not** call `CacheP_wb` or `CacheP_inv`. This is the simplest correct setup and what the upstream TI `ipc_spinlock_sharedmem` example also relies on.
 
-If you ever relocate the channel to a cacheable region (for higher SRAM bandwidth on very large buffers), add cache ops at producer/consumer boundaries in `core0_app.c` / `core1_app.c` (or wrap calls around `ipc_channel_*`):
+If you ever relocate the channel to a cacheable region (for higher SRAM bandwidth on very large buffers), add cache ops at producer/consumer boundaries in the core `src/` application files (or wrap calls around `ipc_channel_*`):
 
 ```c
 // Core 0 (master), AFTER filling req_buf, BEFORE sending the doorbell:
@@ -399,9 +381,9 @@ For two R5F cores on the same SoC, the shared-SRAM + IpcNotify combination is th
 
 ## Roadmap
 
-- [ ] In `core0_app.c`: drop `IPC_PERIOD_MS` from 1000 to 1 (also silence the per-iteration PASS log).
-- [ ] Replace `process_buffer` in `core1_app.c` with the target model code (keep the `(in, out, len)` contract).
-- [ ] If the model needs cycle counts beyond µs resolution, add a `ClockP_getTimeUsec` snapshot around the `process_buffer` call on Core 1 and stash it in a shared field.
+- [ ] Set `DUALCORE_IPC_SELF_TEST` to `0` when EtherCAT cyclic code owns IPC.
+- [ ] Replace `fsoe_worker_process_payload` in `Core1_nortos/src/fsoe_worker_app.c` with the FSoE stack.
+- [ ] From the PDO path on Core 0, call `fsoe_ipc_exchange_sync()` after filling `gIpcCh.req_buf` (Plan A).
 - [ ] If you need < 1 ms periods, lower `usecPerTick` in `example.syscfg` (both cores) and rebuild.
 - [ ] If buffers grow past ~4 KB, consider moving the channel to cacheable memory and adding the four `CacheP_*` calls noted above.
 

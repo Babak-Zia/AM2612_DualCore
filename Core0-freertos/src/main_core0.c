@@ -30,20 +30,43 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdlib.h>
+#include <kernel/dpl/DebugP.h>
 #include "ti_drivers_config.h"
 #include "ti_board_config.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
-void core1_app_run(void *args);
+#include "ecat_bridge_app.h"
+
+#define ECAT_MAIN_TASK_PRI   (configMAX_PRIORITIES - 1)
+
+#define ECAT_MAIN_TASK_SIZE  (16384U / sizeof(configSTACK_DEPTH_TYPE))
+StackType_t  gEcatMainTaskStack[ECAT_MAIN_TASK_SIZE] __attribute__((aligned(32)));
+StaticTask_t gEcatMainTaskObj;
+TaskHandle_t gEcatMainTask;
+
+static void ecat_main_task(void *args)
+{
+    ecat_bridge_task(args);
+    vTaskDelete(NULL);
+}
 
 int main(void)
 {
     System_init();
     Board_init();
 
-    /* Worker enters an infinite service loop and never returns;
-     * Board_deinit/System_deinit below are intentionally unreachable. */
-    core1_app_run(NULL);
+    gEcatMainTask = xTaskCreateStatic(ecat_main_task,
+                                      "ecat_main",
+                                      ECAT_MAIN_TASK_SIZE,
+                                      NULL,
+                                      ECAT_MAIN_TASK_PRI,
+                                      gEcatMainTaskStack,
+                                      &gEcatMainTaskObj);
+    configASSERT(gEcatMainTask != NULL);
 
+    vTaskStartScheduler();
+
+    DebugP_assertNoLog(0);
     return 0;
 }

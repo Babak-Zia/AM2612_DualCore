@@ -1,8 +1,8 @@
 /*
  * ipc_channel.h — public API for shared-memory + IpcNotify transport (both R5F cores).
  *
- * Policy (logging, timing, buffer fill, verification) stays out of this header's
- * implementation file pairing; see core0_app.c / core1_app.c.
+ * Policy (logging, timing, buffer fill, FSoE handling) stays out of this header;
+ * see Core0-freertos/src/ecat_bridge_app.c and Core1_nortos/src/fsoe_worker_app.c.
  */
 
 #ifndef IPC_CHANNEL_H
