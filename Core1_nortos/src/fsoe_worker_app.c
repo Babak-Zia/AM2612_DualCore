@@ -1,8 +1,8 @@
 /*
  * fsoe_worker_app.c — Core 1 FSoE safety worker (NoRTOS).
  *
- * Waits on ipc_channel doorbell, processes req_buf into resp_buf, replies.
- * Replace fsoe_worker_process_payload() with the real FSoE stack handler.
+ * Waits on ipc_channel doorbell, runs fsoe_manager on the Rx PDO in req_buf,
+ * writes Tx PDO to resp_buf, replies to Core 0.
  */
 
 #include <stdint.h>
@@ -14,21 +14,9 @@
 #include "ti_board_open_close.h"
 
 #include "ipc_channel.h"
+#include "fsoe_pdo.h"
+#include "fsoe_manager.h"
 #include "fsoe_worker_app.h"
-
-/**
- * Process one FSoE-related IPC payload (stub: byte-wise increment).
- * Plan A: keep this bounded; Core 0 waits up to FSOE_IPC_REPLY_TIMEOUT_US.
- */
-static void fsoe_worker_process_payload(const uint8_t *req,
-                                        uint8_t *resp,
-                                        uint32_t len)
-{
-    for (uint32_t i = 0U; i < len; i++)
-    {
-        resp[i] = (uint8_t)(req[i] + 1U);
-    }
-}
 
 static void fsoe_worker_board_init(void)
 {
@@ -43,7 +31,21 @@ static void fsoe_ipc_service_init(void)
     status = ipc_channel_worker_init();
     DebugP_assert(status == SystemP_SUCCESS);
 
+    fsoe_manager_init();
+
     ipc_channel_sync_all();
+}
+
+static void fsoe_worker_handle_request(void)
+{
+    fsoe_pdo_rx_t rx;
+    fsoe_pdo_tx_t tx;
+    uint8_t       tx_wire[FSOE_PDO_TX_BYTES];
+
+    fsoe_pdo_rx_wire_decode(&gIpcCh.req_buf[FSOE_IPC_RX_OFFSET], &rx);
+    fsoe_manager_process(&rx, &tx);
+    fsoe_pdo_tx_wire_encode(&tx, tx_wire);
+    (void)memcpy(&gIpcCh.resp_buf[FSOE_IPC_TX_OFFSET], tx_wire, FSOE_PDO_TX_BYTES);
 }
 
 void fsoe_worker_main(void *args)
@@ -52,7 +54,10 @@ void fsoe_worker_main(void *args)
 
     fsoe_worker_board_init();
 
-    DebugP_log("[FSOE] worker starting (client=%u)\r\n", (unsigned)IPC_CLIENT_ID);
+    DebugP_log("[FSOE] worker starting (client=%u, PDO %u+%u B)\r\n",
+               (unsigned)IPC_CLIENT_ID,
+               (unsigned)FSOE_PDO_RX_BYTES,
+               (unsigned)FSOE_PDO_TX_BYTES);
 
     fsoe_ipc_service_init();
     DebugP_log("[FSOE] ready — service loop\r\n");
@@ -61,9 +66,7 @@ void fsoe_worker_main(void *args)
     {
         uint32_t seq = ipc_channel_worker_wait_request();
 
-        fsoe_worker_process_payload((const uint8_t *)gIpcCh.req_buf,
-                                    (uint8_t *)gIpcCh.resp_buf,
-                                    IPC_BUF_LEN);
+        fsoe_worker_handle_request();
 
         ipc_channel_worker_send_reply(seq, IPC_DOORBELL_SEND_FAST);
     }

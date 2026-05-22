@@ -35,6 +35,8 @@
 
 #include <stdint.h>
 
+#include "fsoe_pdo.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -42,8 +44,8 @@ extern "C" {
 /** PDO byte length for 0x1600 / 0x1A00 (0x7000..0x7003 / 0x6000..0x6003), 232 bits. */
 #define ETHERCAT_APP_PDO_IMAGE_BYTES      (29U)
 
-/** PDO byte length for 0x1610 / 0x1A10 (0x7100 / 0x6100 FSoE), 48 bits. */
-#define ETHERCAT_APP_FSOE_PDO_BYTES       (6U)
+/** PDO byte length for 0x1610 / 0x1A10 (must match FSOE_PDO_RX_BYTES / FSOE_PDO_TX_BYTES). */
+#define ETHERCAT_APP_FSOE_PDO_BYTES       FSOE_PDO_RX_BYTES
 
 /** Total RxPDO (SM2) / TxPDO (SM3) process data per ESI (29 + 6). */
 #define ETHERCAT_APP_PD_OUTPUT_BYTES      (ETHERCAT_APP_PDO_IMAGE_BYTES + ETHERCAT_APP_FSOE_PDO_BYTES)

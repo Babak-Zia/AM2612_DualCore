@@ -50,6 +50,7 @@
 #include "SSC-AM2612Objects.h"
 
 #include "ethercat_app.h"
+#include "fsoe_ipc_master.h"
 
 /* ========================================================================== */
 /*                         Types / locals                                      */
@@ -139,20 +140,57 @@ void manage_pdo_tx(uint8_t *pdo_tx)
     (void)memcpy(&d[o], &Complex_Tx0x6003.Complex_Double, sizeof(Complex_Tx0x6003.Complex_Double));
 }
 
+static void fsoe_od_apply_rx_wire(const uint8_t wire[FSOE_PDO_RX_BYTES])
+{
+    fsoe_pdo_rx_t rx;
+
+    fsoe_pdo_rx_wire_decode(wire, &rx);
+    FSOE_Rx0x7100.FsoeCommand   = rx.fsoe_command;
+    FSOE_Rx0x7100.SafeOutputs   = rx.safe_outputs;
+    FSOE_Rx0x7100.ConnectionId  = rx.connection_id;
+    FSOE_Rx0x7100.FsoeCRC       = rx.fsoe_crc;
+}
+
+static void fsoe_od_apply_tx_wire(const uint8_t wire[FSOE_PDO_TX_BYTES])
+{
+    fsoe_pdo_tx_t tx;
+
+    fsoe_pdo_tx_wire_decode(wire, &tx);
+    FSOE_Tx0x6100.FsoeStatus    = tx.fsoe_status;
+    FSOE_Tx0x6100.SafeInputs    = tx.safe_inputs;
+    FSOE_Tx0x6100.ConnectionId  = tx.connection_id;
+    FSOE_Tx0x6100.FsoeCRC       = tx.fsoe_crc;
+}
+
 void manage_pdo_fsoe_rx(uint8_t *pdo_rx)
 {
-    /* 0x1610 → 0x7100: fsoeCommand, safeOutputs, connectionId, fsoeCRC (48 bits, LE). */
-    FSOE_Rx0x7100.FsoeCommand = pdo_rx[0];
-    FSOE_Rx0x7100.SafeOutputs = pdo_rx[1];
-    (void)memcpy(&FSOE_Rx0x7100.ConnectionId, &pdo_rx[2], sizeof(FSOE_Rx0x7100.ConnectionId));
-    (void)memcpy(&FSOE_Rx0x7100.FsoeCRC, &pdo_rx[4], sizeof(FSOE_Rx0x7100.FsoeCRC));
+    uint8_t tx_wire[FSOE_PDO_TX_BYTES];
+    int32_t status;
+
+    /*
+     * Master FSOE RxPDO (0x1610) → Core 1 manager → FSOE TxPDO for master (0x1A10).
+     * CoE objects 0x7100 / 0x6100 are updated for visibility; cyclic Tx uses 0x6100
+     * via manage_pdo_fsoe_tx() in APPL_InputMapping.
+     */
+    fsoe_od_apply_rx_wire(pdo_rx);
+
+    status = fsoe_ipc_master_exchange(pdo_rx, tx_wire, NULL);
+    if (status == SystemP_SUCCESS)
+    {
+        fsoe_od_apply_tx_wire(tx_wire);
+    }
 }
 
 void manage_pdo_fsoe_tx(uint8_t *pdo_tx)
 {
-    /* 0x1A10 → 0x6100: fsoeStatus, safeInputs, connectionId, fsoeCRC (48 bits, LE). */
-    pdo_tx[0] = FSOE_Tx0x6100.FsoeStatus;
-    pdo_tx[1] = FSOE_Tx0x6100.SafeInputs;
-    (void)memcpy(&pdo_tx[2], &FSOE_Tx0x6100.ConnectionId, sizeof(FSOE_Tx0x6100.ConnectionId));
-    (void)memcpy(&pdo_tx[4], &FSOE_Tx0x6100.FsoeCRC, sizeof(FSOE_Tx0x6100.FsoeCRC));
+    fsoe_pdo_tx_t tx;
+    uint8_t       wire[FSOE_PDO_TX_BYTES];
+
+    tx.fsoe_status    = FSOE_Tx0x6100.FsoeStatus;
+    tx.safe_inputs    = FSOE_Tx0x6100.SafeInputs;
+    tx.connection_id  = FSOE_Tx0x6100.ConnectionId;
+    tx.fsoe_crc       = FSOE_Tx0x6100.FsoeCRC;
+
+    fsoe_pdo_tx_wire_encode(&tx, wire);
+    (void)memcpy(pdo_tx, wire, FSOE_PDO_TX_BYTES);
 }

@@ -33,6 +33,16 @@
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/common/ipc_channel.h</locationURI>
 		</link>
+		<link>
+			<name>common/fsoe_pdo.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/common/fsoe_pdo.c</locationURI>
+		</link>
+		<link>
+			<name>common/fsoe_pdo.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/common/fsoe_pdo.h</locationURI>
+		</link>
 	</linkedResources>
 	<variableList>
 		<variable>

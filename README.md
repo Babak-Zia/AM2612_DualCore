@@ -236,7 +236,7 @@ Application knobs are in `Core0-freertos/src/ecat_bridge_app.h`:
 | `DUALCORE_IPC_SELF_TEST` | `1U` | run bring-up ping-pong before idle (`0` when EtherCAT owns IPC) |
 | `DUALCORE_IPC_SELF_TEST_PERIOD_MS` | `100U` | delay between self-test iterations |
 | `DUALCORE_IPC_SELF_TEST_ITERS` | `50U` | self-test transaction count |
-| `FSOE_IPC_REPLY_TIMEOUT_US` | `500U` | Plan A reply budget (`fsoe_ipc_exchange_sync`) |
+| `FSOE_IPC_REPLY_TIMEOUT_US` | `500U` | Plan A reply budget (`fsoe_ipc_master_exchange`) |
 
 Transport constants (`IPC_BUF_LEN`, `IPC_CLIENT_ID`, core IDs, `IPC_MS_TO_TICKS`) are in `common/ipc_channel.h` — change there when both sides must agree.
 
@@ -295,17 +295,22 @@ Below ~10 µs period the doorbell round-trip itself becomes the limit. At that p
 
 ---
 
-## Swap-point: `fsoe_worker_process_payload`
+## FSoE dual-core data path
 
-Single `static` function in `Core1_nortos/src/fsoe_worker_app.c` — replace with the real FSoE handler.
+Cyclic flow (one bus cycle):
 
-**Contract**:
-- read `len` bytes from `req`
-- write `len` bytes to `resp`
-- must not modify `req`
-- must finish before returning (Plan A: Core 0 blocks on `fsoe_ipc_exchange_sync()`)
+1. **Core 0** — `manage_pdo_fsoe_rx()` in `ethercat_app.c` (from `APPL_OutputMapping` / PDO `0x1610`): master FSOE RxPDO bytes → `fsoe_ipc_master_exchange()`.
+2. **IPC** — `gIpcCh.req_buf[0..5]` = Rx wire image; Core 1 doorbell; `resp_buf[0..5]` = Tx wire image (`common/fsoe_pdo.h`).
+3. **Core 1** — `fsoe_worker_app.c` decodes Rx, calls **`fsoe_manager_process()`** in `fsoe_manager.c`, encodes Tx, replies.
+4. **Core 0** — exchange returns; `0x6100` OD updated; **`manage_pdo_fsoe_tx()`** packs `0x1A10` for the master on `APPL_InputMapping`.
 
-The EtherCAT bridge will pack/unpack FSoE bytes into `gIpcCh.req_buf` / `resp_buf` from the PDO image; the worker only runs the safety protocol on that slice.
+| Module | Core | Role |
+|--------|------|------|
+| `common/fsoe_pdo.c` | both | 6-byte PDO wire codec |
+| `fsoe_ipc_master.c` | 0 | sync IPC round trip |
+| `fsoe_manager.c` | 1 | **swap-point** — replace stub with product FSoE stack |
+
+**Swap-point**: implement `fsoe_manager_process()` — must finish within `FSOE_IPC_REPLY_TIMEOUT_US` (Core 0 busy-waits in the PDO path).
 
 ---
 
@@ -381,8 +386,8 @@ For two R5F cores on the same SoC, the shared-SRAM + IpcNotify combination is th
 ## Roadmap
 
 - [ ] Set `DUALCORE_IPC_SELF_TEST` to `0` when EtherCAT cyclic code owns IPC.
-- [ ] Replace `fsoe_worker_process_payload` in `Core1_nortos/src/fsoe_worker_app.c` with the FSoE stack.
-- [ ] From the PDO path on Core 0, call `fsoe_ipc_exchange_sync()` after filling `gIpcCh.req_buf` (Plan A).
+- [x] PDO path on Core 0: `manage_pdo_fsoe_rx()` → `fsoe_ipc_master_exchange()`.
+- [ ] Replace `fsoe_manager_process()` in `Core1_nortos/src/fsoe_manager.c` with the product FSoE stack.
 - [ ] If you need < 1 ms periods, lower `usecPerTick` in `example.syscfg` (both cores) and rebuild.
 - [ ] If buffers grow past ~4 KB, consider moving the channel to cacheable memory and adding the four `CacheP_*` calls noted above.
 

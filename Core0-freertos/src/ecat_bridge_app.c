@@ -1,11 +1,9 @@
 /*
  * ecat_bridge_app.c — Core 0 EtherCAT bridge (FreeRTOS).
  *
- * Responsibilities (today): board init, ipc_channel master, Plan A sync exchange
- * API for FSoE payloads. EtherCAT stack hooks will call fsoe_ipc_exchange_sync()
- * from the cyclic PDO path once integrated.
- *
- * Transport: common/ipc_channel.c (zero-copy on gIpcCh.req_buf / resp_buf).
+ * Responsibilities: board init, ipc_channel master bring-up, optional self-test,
+ * start EtherCAT TaskP stack. Cyclic FSoE uses fsoe_ipc_master_exchange() from
+ * ethercat_app.c (manage_pdo_fsoe_rx).
  */
 
 #include <stdint.h>
@@ -21,6 +19,8 @@
 #include "ti_board_open_close.h"
 
 #include "ipc_channel.h"
+#include "fsoe_pdo.h"
+#include "fsoe_ipc_master.h"
 #include "ecat_bridge_app.h"
 #include "tiescutils.h"
 
@@ -41,8 +41,10 @@ static void fsoe_ipc_bringup(void)
 {
     int32_t status;
 
-    DebugP_log("[ECAT] FSoE IPC: %u B/dir, reply timeout %u us (Plan A)\r\n",
-               (unsigned)IPC_BUF_LEN, (unsigned)FSOE_IPC_REPLY_TIMEOUT_US);
+    DebugP_log("[ECAT] FSoE IPC: PDO %u+%u B, reply timeout %u us\r\n",
+               (unsigned)FSOE_PDO_RX_BYTES,
+               (unsigned)FSOE_PDO_TX_BYTES,
+               (unsigned)FSOE_IPC_REPLY_TIMEOUT_US);
 
     status = ipc_channel_master_init();
     DebugP_assert(status == SystemP_SUCCESS);
@@ -52,51 +54,7 @@ static void fsoe_ipc_bringup(void)
 }
 
 /* -------------------------------------------------------------------------- */
-/* Plan A — one in-flight request, sync reply (future hot path)               */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Single master→worker→master round trip on gIpcCh.
- * Caller must fill req_buf before commit (or use self-test helpers).
- *
- * \param rtt_us_out  Optional RTT in µs (NULL to skip).
- * \return SystemP_SUCCESS if reply seq matches and arrived within timeout.
- */
-int32_t fsoe_ipc_exchange_sync(uint32_t *rtt_us_out)
-{
-    uint32_t expected_seq;
-    uint32_t t0;
-    uint32_t t1;
-    int32_t  status;
-
-    expected_seq = ipc_channel_master_commit_request();
-    t0           = (uint32_t)ClockP_getTimeUsec();
-
-    ipc_channel_master_send_request(expected_seq, IPC_DOORBELL_SEND_FAST);
-
-    status = ipc_channel_master_wait_reply_usec(FSOE_IPC_REPLY_TIMEOUT_US);
-
-    t1 = (uint32_t)ClockP_getTimeUsec();
-    if (rtt_us_out != NULL)
-    {
-        *rtt_us_out = t1 - t0;
-    }
-
-    if (status != SystemP_SUCCESS)
-    {
-        return status;
-    }
-
-    if (gIpcCh.resp_seq != expected_seq)
-    {
-        return SystemP_FAILURE;
-    }
-
-    return SystemP_SUCCESS;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Optional bring-up self-test (stub FSoE: resp[i] = req[i] + 1)              */
+/* Optional bring-up self-test (exercises fsoe_ipc_master + fsoe_manager)     */
 /* -------------------------------------------------------------------------- */
 
 #if (DUALCORE_IPC_SELF_TEST != 0)
@@ -117,37 +75,53 @@ static void fsoe_ipc_self_test_seed_rand(void)
     srand((unsigned int)(uint32_t)ClockP_getTimeUsec());
 }
 
-static void fsoe_ipc_self_test_fill_req(void)
+static void fsoe_ipc_self_test_make_rx(uint8_t rx_wire[FSOE_PDO_RX_BYTES])
 {
-    for (uint32_t i = 0U; i < IPC_BUF_LEN; i++)
-    {
-        gIpcCh.req_buf[i] = (uint8_t)rand();
-    }
+    fsoe_pdo_rx_t rx;
+
+    rx.fsoe_command   = (uint8_t)rand();
+    rx.safe_outputs   = (uint8_t)rand();
+    rx.connection_id  = (uint16_t)((uint32_t)rand() & 0xFFFFU);
+    rx.fsoe_crc       = (uint16_t)((uint32_t)rand() & 0xFFFFU);
+    fsoe_pdo_rx_wire_encode(&rx, rx_wire);
 }
 
-static uint32_t fsoe_ipc_self_test_count_bad_bytes(void)
+static uint32_t fsoe_ipc_self_test_verify(const uint8_t rx_wire[FSOE_PDO_RX_BYTES],
+                                          const uint8_t tx_wire[FSOE_PDO_TX_BYTES])
 {
-    uint32_t bad = 0U;
+    fsoe_pdo_rx_t rx;
+    fsoe_pdo_tx_t tx;
+    fsoe_pdo_tx_t expected;
 
-    for (uint32_t i = 0U; i < IPC_BUF_LEN; i++)
+    fsoe_pdo_rx_wire_decode(rx_wire, &rx);
+    fsoe_pdo_tx_wire_decode(tx_wire, &tx);
+
+    expected.fsoe_status    = 0x01U;
+    expected.safe_inputs    = rx.safe_outputs;
+    expected.connection_id  = rx.connection_id;
+    expected.fsoe_crc       = (uint16_t)(rx.fsoe_crc ^ 0xFFFFU);
+
+    if ((tx.fsoe_status != expected.fsoe_status) ||
+        (tx.safe_inputs != expected.safe_inputs) ||
+        (tx.connection_id != expected.connection_id) ||
+        (tx.fsoe_crc != expected.fsoe_crc))
     {
-        if (gIpcCh.resp_buf[i] != (uint8_t)(gIpcCh.req_buf[i] + 1U))
-        {
-            bad++;
-        }
+        return 1U;
     }
 
-    return bad;
+    return 0U;
 }
 
 static void fsoe_ipc_self_test_one(uint32_t iter, FsoeIpcSelfTestStats *st)
 {
+    uint8_t  rx_wire[FSOE_PDO_RX_BYTES];
+    uint8_t  tx_wire[FSOE_PDO_TX_BYTES];
     uint32_t rtt_us;
     int32_t  status;
 
-    fsoe_ipc_self_test_fill_req();
+    fsoe_ipc_self_test_make_rx(rx_wire);
 
-    status = fsoe_ipc_exchange_sync(&rtt_us);
+    status = fsoe_ipc_master_exchange(rx_wire, tx_wire, &rtt_us);
 
     if (status != SystemP_SUCCESS)
     {
@@ -157,32 +131,27 @@ static void fsoe_ipc_self_test_one(uint32_t iter, FsoeIpcSelfTestStats *st)
         return;
     }
 
+    if (fsoe_ipc_self_test_verify(rx_wire, tx_wire) == 0U)
     {
-        uint32_t bad = fsoe_ipc_self_test_count_bad_bytes();
-
-        if (bad == 0U)
+        st->passed++;
+        if (rtt_us < st->rtt_min)
         {
-            st->passed++;
-            if (rtt_us < st->rtt_min)
-            {
-                st->rtt_min = rtt_us;
-            }
-            if (rtt_us > st->rtt_max)
-            {
-                st->rtt_max = rtt_us;
-            }
-            st->rtt_sum += rtt_us;
-            st->rtt_n++;
-            DebugP_log("[ECAT] self-test iter=%4u  PASS  RTT=%u us\r\n",
-                       (unsigned)iter, (unsigned)rtt_us);
+            st->rtt_min = rtt_us;
         }
-        else
+        if (rtt_us > st->rtt_max)
         {
-            st->failed++;
-            DebugP_log("[ECAT] self-test iter=%4u  FAIL  %u/%u bytes  RTT=%u us\r\n",
-                       (unsigned)iter, (unsigned)bad, (unsigned)IPC_BUF_LEN,
-                       (unsigned)rtt_us);
+            st->rtt_max = rtt_us;
         }
+        st->rtt_sum += rtt_us;
+        st->rtt_n++;
+        DebugP_log("[ECAT] self-test iter=%4u  PASS  RTT=%u us\r\n",
+                   (unsigned)iter, (unsigned)rtt_us);
+    }
+    else
+    {
+        st->failed++;
+        DebugP_log("[ECAT] self-test iter=%4u  FAIL  FSoE PDO  RTT=%u us\r\n",
+                   (unsigned)iter, (unsigned)rtt_us);
     }
 }
 
