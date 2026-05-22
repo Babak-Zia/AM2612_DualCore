@@ -107,6 +107,67 @@ PROTO TOBJ1600 OutputMapping00x1600
 
 
 /******************************************************************************
+*                    Object 0x1610 : FSOE_Rx process data mapping
+******************************************************************************/
+/**
+* \addtogroup 0x1610 0x1610 | FSOE_Rx process data mapping
+* @{
+* \brief Object 0x1610 (FSOE_Rx process data mapping) definition
+*/
+#ifdef _OBJD_
+/**
+* \brief Object entry descriptions<br>
+* <br>
+* SubIndex 0<br>
+* SubIndex 1 - Reference to 0x7100.1<br>
+* SubIndex 2 - Reference to 0x7100.2<br>
+* SubIndex 3 - Reference to 0x7100.3<br>
+* SubIndex 4 - Reference to 0x7100.4<br>
+*/
+OBJCONST TSDOINFOENTRYDESC    OBJMEM asEntryDesc0x1610[] = {
+{ DEFTYPE_UNSIGNED8 , 0x8 , ACCESS_READ },
+{ DEFTYPE_UNSIGNED32 , 0x20 , ACCESS_READ }, /* Subindex1 - Reference to 0x7100.1 */
+{ DEFTYPE_UNSIGNED32 , 0x20 , ACCESS_READ }, /* Subindex2 - Reference to 0x7100.2 */
+{ DEFTYPE_UNSIGNED32 , 0x20 , ACCESS_READ }, /* Subindex3 - Reference to 0x7100.3 */
+{ DEFTYPE_UNSIGNED32 , 0x20 , ACCESS_READ }}; /* Subindex4 - Reference to 0x7100.4 */
+
+/**
+* \brief Object/Entry names
+*/
+OBJCONST UCHAR OBJMEM aName0x1610[] = "FSOE_Rx process data mapping\000"
+"SubIndex 001\000"
+"SubIndex 002\000"
+"SubIndex 003\000"
+"SubIndex 004\000\377";
+#endif //#ifdef _OBJD_
+
+#ifndef _SSC_AM2612_OBJECTS_H_
+/**
+* \brief Object structure
+*/
+typedef struct OBJ_STRUCT_PACKED_START {
+UINT16 u16SubIndex0;
+UINT32 SI1; /* Subindex1 - Reference to 0x7100.1 */
+UINT32 SI2; /* Subindex2 - Reference to 0x7100.2 */
+UINT32 SI3; /* Subindex3 - Reference to 0x7100.3 */
+UINT32 SI4; /* Subindex4 - Reference to 0x7100.4 */
+} OBJ_STRUCT_PACKED_END
+TOBJ1610;
+#endif //#ifndef _SSC_AM2612_OBJECTS_H_
+
+/**
+* \brief Object variable
+*/
+PROTO TOBJ1610 FSOE_RxProcessDataMapping0x1610
+#if defined(_SSC_AM2612_) && (_SSC_AM2612_ == 1)
+={4,0x71000108,0x71000208,0x71000310,0x71000410}
+#endif
+;
+/** @}*/
+
+
+
+/******************************************************************************
 *                    Object 0x1A00 : Input mapping 0
 ******************************************************************************/
 /**
@@ -192,6 +253,67 @@ PROTO TOBJ1A00 InputMapping00x1A00
 
 
 /******************************************************************************
+*                    Object 0x1A10 : FSOE_Tx process data mapping
+******************************************************************************/
+/**
+* \addtogroup 0x1A10 0x1A10 | FSOE_Tx process data mapping
+* @{
+* \brief Object 0x1A10 (FSOE_Tx process data mapping) definition
+*/
+#ifdef _OBJD_
+/**
+* \brief Object entry descriptions<br>
+* <br>
+* SubIndex 0<br>
+* SubIndex 1 - Reference to 0x6100.1<br>
+* SubIndex 2 - Reference to 0x6100.2<br>
+* SubIndex 3 - Reference to 0x6100.3<br>
+* SubIndex 4 - Reference to 0x6100.4<br>
+*/
+OBJCONST TSDOINFOENTRYDESC    OBJMEM asEntryDesc0x1A10[] = {
+{ DEFTYPE_UNSIGNED8 , 0x8 , ACCESS_READ },
+{ DEFTYPE_UNSIGNED32 , 0x20 , ACCESS_READ }, /* Subindex1 - Reference to 0x6100.1 */
+{ DEFTYPE_UNSIGNED32 , 0x20 , ACCESS_READ }, /* Subindex2 - Reference to 0x6100.2 */
+{ DEFTYPE_UNSIGNED32 , 0x20 , ACCESS_READ }, /* Subindex3 - Reference to 0x6100.3 */
+{ DEFTYPE_UNSIGNED32 , 0x20 , ACCESS_READ }}; /* Subindex4 - Reference to 0x6100.4 */
+
+/**
+* \brief Object/Entry names
+*/
+OBJCONST UCHAR OBJMEM aName0x1A10[] = "FSOE_Tx process data mapping\000"
+"SubIndex 001\000"
+"SubIndex 002\000"
+"SubIndex 003\000"
+"SubIndex 004\000\377";
+#endif //#ifdef _OBJD_
+
+#ifndef _SSC_AM2612_OBJECTS_H_
+/**
+* \brief Object structure
+*/
+typedef struct OBJ_STRUCT_PACKED_START {
+UINT16 u16SubIndex0;
+UINT32 SI1; /* Subindex1 - Reference to 0x6100.1 */
+UINT32 SI2; /* Subindex2 - Reference to 0x6100.2 */
+UINT32 SI3; /* Subindex3 - Reference to 0x6100.3 */
+UINT32 SI4; /* Subindex4 - Reference to 0x6100.4 */
+} OBJ_STRUCT_PACKED_END
+TOBJ1A10;
+#endif //#ifndef _SSC_AM2612_OBJECTS_H_
+
+/**
+* \brief Object variable
+*/
+PROTO TOBJ1A10 FSOE_TxProcessDataMapping0x1A10
+#if defined(_SSC_AM2612_) && (_SSC_AM2612_ == 1)
+={4,0x61000108,0x61000208,0x61000310,0x61000410}
+#endif
+;
+/** @}*/
+
+
+
+/******************************************************************************
 *                    Object 0x1C12 : SyncManager 2 assignment
 ******************************************************************************/
 /**
@@ -223,7 +345,7 @@ OBJCONST UCHAR OBJMEM aName0x1C12[] = "SyncManager 2 assignment\000\377";
 */
 typedef struct OBJ_STRUCT_PACKED_START {
 UINT16   u16SubIndex0;  /**< \brief Subindex 0 */
-UINT16 aEntries[1];  /**< \brief Subindex 1 - 1 */
+UINT16 aEntries[2];  /**< \brief Subindex 1 - 2 */
 } OBJ_STRUCT_PACKED_END
 TOBJ1C12;
 #endif //#ifndef _SSC_AM2612_OBJECTS_H_
@@ -233,7 +355,7 @@ TOBJ1C12;
 */
 PROTO TOBJ1C12 sRxPDOassign
 #if defined(_SSC_AM2612_) && (_SSC_AM2612_ == 1)
-={1,{0x1600}}
+={2,{0x1600,0x1610}}
 #endif
 ;
 /** @}*/
@@ -272,7 +394,7 @@ OBJCONST UCHAR OBJMEM aName0x1C13[] = "SyncManager 3 assignment\000\377";
 */
 typedef struct OBJ_STRUCT_PACKED_START {
 UINT16   u16SubIndex0;  /**< \brief Subindex 0 */
-UINT16 aEntries[1];  /**< \brief Subindex 1 - 1 */
+UINT16 aEntries[2];  /**< \brief Subindex 1 - 2 */
 } OBJ_STRUCT_PACKED_END
 TOBJ1C13;
 #endif //#ifndef _SSC_AM2612_OBJECTS_H_
@@ -282,7 +404,7 @@ TOBJ1C13;
 */
 PROTO TOBJ1C13 sTxPDOassign
 #if defined(_SSC_AM2612_) && (_SSC_AM2612_ == 1)
-={1,{0x1A00}}
+={2,{0x1A00,0x1A10}}
 #endif
 ;
 /** @}*/
@@ -466,6 +588,67 @@ PROTO TOBJ6003 Complex_Tx0x6003
 
 
 /******************************************************************************
+*                    Object 0x6100 : FSOE_Tx
+******************************************************************************/
+/**
+* \addtogroup 0x6100 0x6100 | FSOE_Tx
+* @{
+* \brief Object 0x6100 (FSOE_Tx) definition
+*/
+#ifdef _OBJD_
+/**
+* \brief Object entry descriptions<br>
+* <br>
+* SubIndex 0<br>
+* SubIndex 1 - fsoeStatus<br>
+* SubIndex 2 - safeInputs<br>
+* SubIndex 3 - connectionId<br>
+* SubIndex 4 - fsoeCRC<br>
+*/
+OBJCONST TSDOINFOENTRYDESC    OBJMEM asEntryDesc0x6100[] = {
+{ DEFTYPE_UNSIGNED8 , 0x8 , ACCESS_READ },
+{ DEFTYPE_UNSIGNED8 , 0x08 , ACCESS_READWRITE | OBJACCESS_TXPDOMAPPING }, /* Subindex1 - fsoeStatus */
+{ DEFTYPE_UNSIGNED8 , 0x08 , ACCESS_READWRITE | OBJACCESS_TXPDOMAPPING }, /* Subindex2 - safeInputs */
+{ DEFTYPE_UNSIGNED16 , 0x10 , ACCESS_READWRITE | OBJACCESS_TXPDOMAPPING }, /* Subindex3 - connectionId */
+{ DEFTYPE_UNSIGNED16 , 0x10 , ACCESS_READWRITE | OBJACCESS_TXPDOMAPPING }}; /* Subindex4 - fsoeCRC */
+
+/**
+* \brief Object/Entry names
+*/
+OBJCONST UCHAR OBJMEM aName0x6100[] = "FSOE_Tx\000"
+"fsoeStatus\000"
+"safeInputs\000"
+"connectionId\000"
+"fsoeCRC\000\377";
+#endif //#ifdef _OBJD_
+
+#ifndef _SSC_AM2612_OBJECTS_H_
+/**
+* \brief Object structure
+*/
+typedef struct OBJ_STRUCT_PACKED_START {
+UINT16 u16SubIndex0;
+UINT8 FsoeStatus; /* Subindex1 - fsoeStatus */
+UINT8 SafeInputs; /* Subindex2 - safeInputs */
+UINT16 ConnectionId; /* Subindex3 - connectionId */
+UINT16 FsoeCRC; /* Subindex4 - fsoeCRC */
+} OBJ_STRUCT_PACKED_END
+TOBJ6100;
+#endif //#ifndef _SSC_AM2612_OBJECTS_H_
+
+/**
+* \brief Object variable
+*/
+PROTO TOBJ6100 FSOE_Tx0x6100
+#if defined(_SSC_AM2612_) && (_SSC_AM2612_ == 1)
+={4,0x00,0x00,0x0000,0x0000}
+#endif
+;
+/** @}*/
+
+
+
+/******************************************************************************
 *                    Object 0x7000 : Single_Byte_Rx
 ******************************************************************************/
 /**
@@ -642,6 +825,67 @@ PROTO TOBJ7003 Complex_Rx0x7003
 
 
 /******************************************************************************
+*                    Object 0x7100 : FSOE_Rx
+******************************************************************************/
+/**
+* \addtogroup 0x7100 0x7100 | FSOE_Rx
+* @{
+* \brief Object 0x7100 (FSOE_Rx) definition
+*/
+#ifdef _OBJD_
+/**
+* \brief Object entry descriptions<br>
+* <br>
+* SubIndex 0<br>
+* SubIndex 1 - fsoeCommand<br>
+* SubIndex 2 - safeOutputs<br>
+* SubIndex 3 - connectionId<br>
+* SubIndex 4 - fsoeCRC<br>
+*/
+OBJCONST TSDOINFOENTRYDESC    OBJMEM asEntryDesc0x7100[] = {
+{ DEFTYPE_UNSIGNED8 , 0x8 , ACCESS_READ },
+{ DEFTYPE_UNSIGNED8 , 0x08 , ACCESS_READWRITE | OBJACCESS_RXPDOMAPPING }, /* Subindex1 - fsoeCommand */
+{ DEFTYPE_UNSIGNED8 , 0x08 , ACCESS_READWRITE | OBJACCESS_RXPDOMAPPING }, /* Subindex2 - safeOutputs */
+{ DEFTYPE_UNSIGNED16 , 0x10 , ACCESS_READWRITE | OBJACCESS_RXPDOMAPPING }, /* Subindex3 - connectionId */
+{ DEFTYPE_UNSIGNED16 , 0x10 , ACCESS_READWRITE | OBJACCESS_RXPDOMAPPING }}; /* Subindex4 - fsoeCRC */
+
+/**
+* \brief Object/Entry names
+*/
+OBJCONST UCHAR OBJMEM aName0x7100[] = "FSOE_Rx\000"
+"fsoeCommand\000"
+"safeOutputs\000"
+"connectionId\000"
+"fsoeCRC\000\377";
+#endif //#ifdef _OBJD_
+
+#ifndef _SSC_AM2612_OBJECTS_H_
+/**
+* \brief Object structure
+*/
+typedef struct OBJ_STRUCT_PACKED_START {
+UINT16 u16SubIndex0;
+UINT8 FsoeCommand; /* Subindex1 - fsoeCommand */
+UINT8 SafeOutputs; /* Subindex2 - safeOutputs */
+UINT16 ConnectionId; /* Subindex3 - connectionId */
+UINT16 FsoeCRC; /* Subindex4 - fsoeCRC */
+} OBJ_STRUCT_PACKED_END
+TOBJ7100;
+#endif //#ifndef _SSC_AM2612_OBJECTS_H_
+
+/**
+* \brief Object variable
+*/
+PROTO TOBJ7100 FSOE_Rx0x7100
+#if defined(_SSC_AM2612_) && (_SSC_AM2612_ == 1)
+={4,0x00,0x00,0x0000,0x0000}
+#endif
+;
+/** @}*/
+
+
+
+/******************************************************************************
 *                    Object 0xF000 : Modular Device Profile
 ******************************************************************************/
 /**
@@ -697,36 +941,42 @@ PROTO TOBJF000 ModularDeviceProfile0xF000
 
 
 PROTO UINT8 yes(UINT16 index, UINT8 subindex, UINT32 dataSize, UINT16 MBXMEM * pData, UINT8 bCompleteAccess);
-PROTO UINT8 No(UINT16 index, UINT8 subindex, UINT32 dataSize, UINT16 MBXMEM * pData, UINT8 bCompleteAccess);
-PROTO UINT8 yes(UINT16 index, UINT8 subindex, UINT32 dataSize, UINT16 MBXMEM * pData, UINT8 bCompleteAccess);
 
 
 #ifdef _OBJD_
 TOBJECT    OBJMEM ApplicationObjDic[] = {
 /* Object 0x1600 */
 {NULL , NULL ,  0x1600 , {DEFTYPE_PDOMAPPING , 10 | (OBJCODE_REC << 8)} , asEntryDesc0x1600 , aName0x1600 , &OutputMapping00x1600 , NULL , NULL , 0x0000 },
+/* Object 0x1610 */
+{NULL , NULL ,  0x1610 , {DEFTYPE_PDOMAPPING , 4 | (OBJCODE_REC << 8)} , asEntryDesc0x1610 , aName0x1610 , &FSOE_RxProcessDataMapping0x1610 , NULL , NULL , 0x0000 },
 /* Object 0x1A00 */
 {NULL , NULL ,  0x1A00 , {DEFTYPE_PDOMAPPING , 10 | (OBJCODE_REC << 8)} , asEntryDesc0x1A00 , aName0x1A00 , &InputMapping00x1A00 , NULL , NULL , 0x0000 },
+/* Object 0x1A10 */
+{NULL , NULL ,  0x1A10 , {DEFTYPE_PDOMAPPING , 4 | (OBJCODE_REC << 8)} , asEntryDesc0x1A10 , aName0x1A10 , &FSOE_TxProcessDataMapping0x1A10 , NULL , NULL , 0x0000 },
 /* Object 0x1C12 */
-{NULL , NULL ,  0x1C12 , {DEFTYPE_UNSIGNED16 , 1 | (OBJCODE_ARR << 8)} , asEntryDesc0x1C12 , aName0x1C12 , &sRxPDOassign , NULL , NULL , 0x0000 },
+{NULL , NULL ,  0x1C12 , {DEFTYPE_UNSIGNED16 , 2 | (OBJCODE_ARR << 8)} , asEntryDesc0x1C12 , aName0x1C12 , &sRxPDOassign , NULL , NULL , 0x0000 },
 /* Object 0x1C13 */
-{NULL , NULL ,  0x1C13 , {DEFTYPE_UNSIGNED16 , 1 | (OBJCODE_ARR << 8)} , asEntryDesc0x1C13 , aName0x1C13 , &sTxPDOassign , NULL , NULL , 0x0000 },
+{NULL , NULL ,  0x1C13 , {DEFTYPE_UNSIGNED16 , 2 | (OBJCODE_ARR << 8)} , asEntryDesc0x1C13 , aName0x1C13 , &sTxPDOassign , NULL , NULL , 0x0000 },
 /* Object 0x6000 */
-{NULL , NULL ,  0x6000 , {DEFTYPE_UNSIGNED8 , 0 | (OBJCODE_VAR << 8)} , &sEntryDesc0x6000 , aName0x6000 , &Single_Byte_Tx0x6000 , yes , No , 0x0000 },
+{NULL , NULL ,  0x6000 , {DEFTYPE_UNSIGNED8 , 0 | (OBJCODE_VAR << 8)} , &sEntryDesc0x6000 , aName0x6000 , &Single_Byte_Tx0x6000 , NULL , NULL , 0x0000 },
 /* Object 0x6001 */
 {NULL , NULL ,  0x6001 , {DEFTYPE_INTEGER8 , 3 | (OBJCODE_ARR << 8)} , asEntryDesc0x6001 , aName0x6001 , &Array_Byte_TX0x6001 , NULL , NULL , 0x0000 },
 /* Object 0x6002 */
-{NULL , NULL ,  0x6002 , {DEFTYPE_INTEGER16 , 0 | (OBJCODE_VAR << 8)} , &sEntryDesc0x6002 , aName0x6002 , &Single_Short_Tx0x6002 , yes , No , 0x0000 },
+{NULL , NULL ,  0x6002 , {DEFTYPE_INTEGER16 , 0 | (OBJCODE_VAR << 8)} , &sEntryDesc0x6002 , aName0x6002 , &Single_Short_Tx0x6002 , NULL , NULL , 0x0000 },
 /* Object 0x6003 */
-{NULL , NULL ,  0x6003 , {DEFTYPE_RECORD , 5 | (OBJCODE_REC << 8)} , asEntryDesc0x6003 , aName0x6003 , &Complex_Tx0x6003 , NULL , NULL , 0x0000 },
+{NULL , NULL ,  0x6003 , {DEFTYPE_RECORD , 5 | (OBJCODE_REC << 8)} , asEntryDesc0x6003 , aName0x6003 , &Complex_Tx0x6003 , yes , NULL , 0x0000 },
+/* Object 0x6100 */
+{NULL , NULL ,  0x6100 , {DEFTYPE_RECORD , 4 | (OBJCODE_REC << 8)} , asEntryDesc0x6100 , aName0x6100 , &FSOE_Tx0x6100 , yes , NULL , 0x0000 },
 /* Object 0x7000 */
-{NULL , NULL ,  0x7000 , {DEFTYPE_UNSIGNED8 , 0 | (OBJCODE_VAR << 8)} , &sEntryDesc0x7000 , aName0x7000 , &Single_Byte_Rx0x7000 , yes , yes , 0x0000 },
+{NULL , NULL ,  0x7000 , {DEFTYPE_UNSIGNED8 , 0 | (OBJCODE_VAR << 8)} , &sEntryDesc0x7000 , aName0x7000 , &Single_Byte_Rx0x7000 , NULL , NULL , 0x0000 },
 /* Object 0x7001 */
 {NULL , NULL ,  0x7001 , {DEFTYPE_INTEGER8 , 3 | (OBJCODE_ARR << 8)} , asEntryDesc0x7001 , aName0x7001 , &Array_Byte_RX0x7001 , NULL , NULL , 0x0000 },
 /* Object 0x7002 */
-{NULL , NULL ,  0x7002 , {DEFTYPE_INTEGER16 , 0 | (OBJCODE_VAR << 8)} , &sEntryDesc0x7002 , aName0x7002 , &Single_Short_Rx0x7002 , yes , yes , 0x0000 },
+{NULL , NULL ,  0x7002 , {DEFTYPE_INTEGER16 , 0 | (OBJCODE_VAR << 8)} , &sEntryDesc0x7002 , aName0x7002 , &Single_Short_Rx0x7002 , NULL , NULL , 0x0000 },
 /* Object 0x7003 */
-{NULL , NULL ,  0x7003 , {DEFTYPE_RECORD , 5 | (OBJCODE_REC << 8)} , asEntryDesc0x7003 , aName0x7003 , &Complex_Rx0x7003 , NULL , NULL , 0x0000 },
+{NULL , NULL ,  0x7003 , {DEFTYPE_RECORD , 5 | (OBJCODE_REC << 8)} , asEntryDesc0x7003 , aName0x7003 , &Complex_Rx0x7003 , yes , NULL , 0x0000 },
+/* Object 0x7100 */
+{NULL , NULL ,  0x7100 , {DEFTYPE_RECORD , 4 | (OBJCODE_REC << 8)} , asEntryDesc0x7100 , aName0x7100 , &FSOE_Rx0x7100 , yes , NULL , 0x0000 },
 /* Object 0xF000 */
 {NULL , NULL ,  0xF000 , {DEFTYPE_RECORD , 2 | (OBJCODE_REC << 8)} , asEntryDesc0xF000 , aName0xF000 , &ModularDeviceProfile0xF000 , NULL , NULL , 0x0000 },
 {NULL,NULL, 0xFFFF, {0, 0}, NULL, NULL, NULL, NULL}};

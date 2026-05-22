@@ -304,6 +304,64 @@
 								</SubItem>
 							</DataType>
 							<DataType>
+								<Name>DT1610</Name>
+								<BitSize>144</BitSize>
+								<SubItem>
+									<SubIdx>0</SubIdx>
+									<Name>SubIndex 000</Name>
+									<Type>USINT</Type>
+									<BitSize>8</BitSize>
+									<BitOffs>0</BitOffs>
+									<Flags>
+										<Access>ro</Access>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>1</SubIdx>
+									<Name>SubIndex 001</Name>
+									<Type>UDINT</Type>
+									<Comment>Reference to 0x7100.1</Comment>
+									<BitSize>32</BitSize>
+									<BitOffs>16</BitOffs>
+									<Flags>
+										<Access>ro</Access>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>2</SubIdx>
+									<Name>SubIndex 002</Name>
+									<Type>UDINT</Type>
+									<Comment>Reference to 0x7100.2</Comment>
+									<BitSize>32</BitSize>
+									<BitOffs>48</BitOffs>
+									<Flags>
+										<Access>ro</Access>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>3</SubIdx>
+									<Name>SubIndex 003</Name>
+									<Type>UDINT</Type>
+									<Comment>Reference to 0x7100.3</Comment>
+									<BitSize>32</BitSize>
+									<BitOffs>80</BitOffs>
+									<Flags>
+										<Access>ro</Access>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>4</SubIdx>
+									<Name>SubIndex 004</Name>
+									<Type>UDINT</Type>
+									<Comment>Reference to 0x7100.4</Comment>
+									<BitSize>32</BitSize>
+									<BitOffs>112</BitOffs>
+									<Flags>
+										<Access>ro</Access>
+									</Flags>
+								</SubItem>
+							</DataType>
+							<DataType>
 								<Name>DT1A00</Name>
 								<BitSize>336</BitSize>
 								<SubItem>
@@ -428,6 +486,64 @@
 								</SubItem>
 							</DataType>
 							<DataType>
+								<Name>DT1A10</Name>
+								<BitSize>144</BitSize>
+								<SubItem>
+									<SubIdx>0</SubIdx>
+									<Name>SubIndex 000</Name>
+									<Type>USINT</Type>
+									<BitSize>8</BitSize>
+									<BitOffs>0</BitOffs>
+									<Flags>
+										<Access>ro</Access>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>1</SubIdx>
+									<Name>SubIndex 001</Name>
+									<Type>UDINT</Type>
+									<Comment>Reference to 0x6100.1</Comment>
+									<BitSize>32</BitSize>
+									<BitOffs>16</BitOffs>
+									<Flags>
+										<Access>ro</Access>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>2</SubIdx>
+									<Name>SubIndex 002</Name>
+									<Type>UDINT</Type>
+									<Comment>Reference to 0x6100.2</Comment>
+									<BitSize>32</BitSize>
+									<BitOffs>48</BitOffs>
+									<Flags>
+										<Access>ro</Access>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>3</SubIdx>
+									<Name>SubIndex 003</Name>
+									<Type>UDINT</Type>
+									<Comment>Reference to 0x6100.3</Comment>
+									<BitSize>32</BitSize>
+									<BitOffs>80</BitOffs>
+									<Flags>
+										<Access>ro</Access>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>4</SubIdx>
+									<Name>SubIndex 004</Name>
+									<Type>UDINT</Type>
+									<Comment>Reference to 0x6100.4</Comment>
+									<BitSize>32</BitSize>
+									<BitOffs>112</BitOffs>
+									<Flags>
+										<Access>ro</Access>
+									</Flags>
+								</SubItem>
+							</DataType>
+							<DataType>
 								<Name>DT1C00ARR</Name>
 								<BaseType>USINT</BaseType>
 								<BitSize>32</BitSize>
@@ -462,15 +578,15 @@
 							<DataType>
 								<Name>DT1C12ARR</Name>
 								<BaseType>UINT</BaseType>
-								<BitSize>16</BitSize>
+								<BitSize>32</BitSize>
 								<ArrayInfo>
 									<LBound>1</LBound>
-									<Elements>1</Elements>
+									<Elements>2</Elements>
 								</ArrayInfo>
 							</DataType>
 							<DataType>
 								<Name>DT1C12</Name>
-								<BitSize>32</BitSize>
+								<BitSize>48</BitSize>
 								<SubItem>
 									<SubIdx>0</SubIdx>
 									<Name>SubIndex 000</Name>
@@ -484,7 +600,7 @@
 								<SubItem>
 									<Name>Elements</Name>
 									<Type>DT1C12ARR</Type>
-									<BitSize>16</BitSize>
+									<BitSize>32</BitSize>
 									<BitOffs>16</BitOffs>
 									<Flags>
 										<Access>ro</Access>
@@ -494,15 +610,15 @@
 							<DataType>
 								<Name>DT1C13ARR</Name>
 								<BaseType>UINT</BaseType>
-								<BitSize>16</BitSize>
+								<BitSize>32</BitSize>
 								<ArrayInfo>
 									<LBound>1</LBound>
-									<Elements>1</Elements>
+									<Elements>2</Elements>
 								</ArrayInfo>
 							</DataType>
 							<DataType>
 								<Name>DT1C13</Name>
-								<BitSize>32</BitSize>
+								<BitSize>48</BitSize>
 								<SubItem>
 									<SubIdx>0</SubIdx>
 									<Name>SubIndex 000</Name>
@@ -516,7 +632,7 @@
 								<SubItem>
 									<Name>Elements</Name>
 									<Type>DT1C13ARR</Type>
-									<BitSize>16</BitSize>
+									<BitSize>32</BitSize>
 									<BitOffs>16</BitOffs>
 									<Flags>
 										<Access>ro</Access>
@@ -894,6 +1010,64 @@
 								</SubItem>
 							</DataType>
 							<DataType>
+								<Name>DT6100</Name>
+								<BitSize>64</BitSize>
+								<SubItem>
+									<SubIdx>0</SubIdx>
+									<Name>SubIndex 000</Name>
+									<Type>USINT</Type>
+									<BitSize>8</BitSize>
+									<BitOffs>0</BitOffs>
+									<Flags>
+										<Access>ro</Access>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>1</SubIdx>
+									<Name>fsoeStatus</Name>
+									<Type>USINT</Type>
+									<BitSize>8</BitSize>
+									<BitOffs>16</BitOffs>
+									<Flags>
+										<Access>rw</Access>
+										<PdoMapping>t</PdoMapping>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>2</SubIdx>
+									<Name>safeInputs</Name>
+									<Type>USINT</Type>
+									<BitSize>8</BitSize>
+									<BitOffs>24</BitOffs>
+									<Flags>
+										<Access>rw</Access>
+										<PdoMapping>t</PdoMapping>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>3</SubIdx>
+									<Name>connectionId</Name>
+									<Type>UINT</Type>
+									<BitSize>16</BitSize>
+									<BitOffs>32</BitOffs>
+									<Flags>
+										<Access>rw</Access>
+										<PdoMapping>t</PdoMapping>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>4</SubIdx>
+									<Name>fsoeCRC</Name>
+									<Type>UINT</Type>
+									<BitSize>16</BitSize>
+									<BitOffs>48</BitOffs>
+									<Flags>
+										<Access>rw</Access>
+										<PdoMapping>t</PdoMapping>
+									</Flags>
+								</SubItem>
+							</DataType>
+							<DataType>
 								<Name>DT7001ARR</Name>
 								<BaseType>SINT</BaseType>
 								<BitSize>24</BitSize>
@@ -989,6 +1163,64 @@
 									<Type>LREAL</Type>
 									<BitSize>64</BitSize>
 									<BitOffs>136</BitOffs>
+									<Flags>
+										<Access>rw</Access>
+										<PdoMapping>r</PdoMapping>
+									</Flags>
+								</SubItem>
+							</DataType>
+							<DataType>
+								<Name>DT7100</Name>
+								<BitSize>64</BitSize>
+								<SubItem>
+									<SubIdx>0</SubIdx>
+									<Name>SubIndex 000</Name>
+									<Type>USINT</Type>
+									<BitSize>8</BitSize>
+									<BitOffs>0</BitOffs>
+									<Flags>
+										<Access>ro</Access>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>1</SubIdx>
+									<Name>fsoeCommand</Name>
+									<Type>USINT</Type>
+									<BitSize>8</BitSize>
+									<BitOffs>16</BitOffs>
+									<Flags>
+										<Access>rw</Access>
+										<PdoMapping>r</PdoMapping>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>2</SubIdx>
+									<Name>safeOutputs</Name>
+									<Type>USINT</Type>
+									<BitSize>8</BitSize>
+									<BitOffs>24</BitOffs>
+									<Flags>
+										<Access>rw</Access>
+										<PdoMapping>r</PdoMapping>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>3</SubIdx>
+									<Name>connectionId</Name>
+									<Type>UINT</Type>
+									<BitSize>16</BitSize>
+									<BitOffs>32</BitOffs>
+									<Flags>
+										<Access>rw</Access>
+										<PdoMapping>r</PdoMapping>
+									</Flags>
+								</SubItem>
+								<SubItem>
+									<SubIdx>4</SubIdx>
+									<Name>fsoeCRC</Name>
+									<Type>UINT</Type>
+									<BitSize>16</BitSize>
+									<BitOffs>48</BitOffs>
 									<Flags>
 										<Access>rw</Access>
 										<PdoMapping>r</PdoMapping>
@@ -1240,6 +1472,44 @@
 								</Info>
 							</Object>
 							<Object>
+								<Index>#x1610</Index>
+								<Name>FSOE_Rx process data mapping</Name>
+								<Type>DT1610</Type>
+								<BitSize>144</BitSize>
+								<Info>
+									<SubItem>
+										<Name>SubIndex 000</Name>
+										<Info>
+											<DefaultData>04</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>SubIndex 001</Name>
+										<Info>
+											<DefaultData>08010071</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>SubIndex 002</Name>
+										<Info>
+											<DefaultData>08020071</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>SubIndex 003</Name>
+										<Info>
+											<DefaultData>10030071</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>SubIndex 004</Name>
+										<Info>
+											<DefaultData>10040071</DefaultData>
+										</Info>
+									</SubItem>
+								</Info>
+							</Object>
+							<Object>
 								<Index>#x1A00</Index>
 								<Name>Input mapping 0</Name>
 								<Type>DT1A00</Type>
@@ -1314,6 +1584,44 @@
 								</Info>
 							</Object>
 							<Object>
+								<Index>#x1A10</Index>
+								<Name>FSOE_Tx process data mapping</Name>
+								<Type>DT1A10</Type>
+								<BitSize>144</BitSize>
+								<Info>
+									<SubItem>
+										<Name>SubIndex 000</Name>
+										<Info>
+											<DefaultData>04</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>SubIndex 001</Name>
+										<Info>
+											<DefaultData>08010061</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>SubIndex 002</Name>
+										<Info>
+											<DefaultData>08020061</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>SubIndex 003</Name>
+										<Info>
+											<DefaultData>10030061</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>SubIndex 004</Name>
+										<Info>
+											<DefaultData>10040061</DefaultData>
+										</Info>
+									</SubItem>
+								</Info>
+							</Object>
+							<Object>
 								<Index>#x1C00</Index>
 								<Name>Sync manager type</Name>
 								<Type>DT1C00</Type>
@@ -1355,12 +1663,12 @@
 								<Index>#x1C12</Index>
 								<Name>SyncManager 2 assignment</Name>
 								<Type>DT1C12</Type>
-								<BitSize>32</BitSize>
+								<BitSize>48</BitSize>
 								<Info>
 									<SubItem>
 										<Name>SubIndex 000</Name>
 										<Info>
-											<DefaultData>01</DefaultData>
+											<DefaultData>02</DefaultData>
 										</Info>
 									</SubItem>
 									<SubItem>
@@ -1369,24 +1677,36 @@
 											<DefaultData>0016</DefaultData>
 										</Info>
 									</SubItem>
+									<SubItem>
+										<Name>SubIndex 002</Name>
+										<Info>
+											<DefaultData>1016</DefaultData>
+										</Info>
+									</SubItem>
 								</Info>
 							</Object>
 							<Object>
 								<Index>#x1C13</Index>
 								<Name>SyncManager 3 assignment</Name>
 								<Type>DT1C13</Type>
-								<BitSize>32</BitSize>
+								<BitSize>48</BitSize>
 								<Info>
 									<SubItem>
 										<Name>SubIndex 000</Name>
 										<Info>
-											<DefaultData>01</DefaultData>
+											<DefaultData>02</DefaultData>
 										</Info>
 									</SubItem>
 									<SubItem>
 										<Name>SubIndex 001</Name>
 										<Info>
 											<DefaultData>001A</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>SubIndex 002</Name>
+										<Info>
+											<DefaultData>101A</DefaultData>
 										</Info>
 									</SubItem>
 								</Info>
@@ -1558,6 +1878,44 @@
 								</Info>
 							</Object>
 							<Object>
+								<Index>#x6100</Index>
+								<Name>FSOE_Tx</Name>
+								<Type>DT6100</Type>
+								<BitSize>64</BitSize>
+								<Info>
+									<SubItem>
+										<Name>SubIndex 000</Name>
+										<Info>
+											<DefaultData>04</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>fsoeStatus</Name>
+										<Info>
+											<DefaultData>00</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>safeInputs</Name>
+										<Info>
+											<DefaultData>00</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>connectionId</Name>
+										<Info>
+											<DefaultData>0000</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>fsoeCRC</Name>
+										<Info>
+											<DefaultData>0000</DefaultData>
+										</Info>
+									</SubItem>
+								</Info>
+							</Object>
+							<Object>
 								<Index>#x7000</Index>
 								<Name>Single_Byte_Rx</Name>
 								<Type>USINT</Type>
@@ -1660,6 +2018,44 @@
 								</Info>
 							</Object>
 							<Object>
+								<Index>#x7100</Index>
+								<Name>FSOE_Rx</Name>
+								<Type>DT7100</Type>
+								<BitSize>64</BitSize>
+								<Info>
+									<SubItem>
+										<Name>SubIndex 000</Name>
+										<Info>
+											<DefaultData>04</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>fsoeCommand</Name>
+										<Info>
+											<DefaultData>00</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>safeOutputs</Name>
+										<Info>
+											<DefaultData>00</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>connectionId</Name>
+										<Info>
+											<DefaultData>0000</DefaultData>
+										</Info>
+									</SubItem>
+									<SubItem>
+										<Name>fsoeCRC</Name>
+										<Info>
+											<DefaultData>0000</DefaultData>
+										</Info>
+									</SubItem>
+								</Info>
+							</Object>
+							<Object>
 								<Index>#xF000</Index>
 								<Name>Modular Device Profile</Name>
 								<Type>DTF000</Type>
@@ -1687,8 +2083,8 @@
 				<Fmmu>MBoxState</Fmmu>
 				<Sm MinSize="#x24" MaxSize="#x80" DefaultSize="#x80" StartAddress="#x1000" ControlByte="#x26" Enable="1">MBoxOut</Sm>
 				<Sm MinSize="#x24" MaxSize="#x80" DefaultSize="#x80" StartAddress="#x1080" ControlByte="#x22" Enable="1">MBoxIn</Sm>
-				<Sm DefaultSize="29" StartAddress="#x1100" ControlByte="#x64" Enable="1">Outputs</Sm>
-				<Sm DefaultSize="29" StartAddress="#x1400" ControlByte="#x20" Enable="1">Inputs</Sm>
+				<Sm DefaultSize="35" StartAddress="#x1100" ControlByte="#x64" Enable="1">Outputs</Sm>
+				<Sm DefaultSize="35" StartAddress="#x1400" ControlByte="#x20" Enable="1">Inputs</Sm>
 				<RxPdo Fixed="true" Mandatory="true" Sm="2">
 					<Index>#x1600</Index>
 					<Name>Output mapping 0</Name>
@@ -1763,6 +2159,38 @@
 						<DataType>LREAL</DataType>
 					</Entry>
 				</RxPdo>
+				<RxPdo Fixed="true" Mandatory="true" Sm="2">
+					<Index>#x1610</Index>
+					<Name>FSOE_Rx process data mapping</Name>
+					<Entry>
+						<Index>#x7100</Index>
+						<SubIndex>1</SubIndex>
+						<BitLen>8</BitLen>
+						<Name>fsoeCommand</Name>
+						<DataType>USINT</DataType>
+					</Entry>
+					<Entry>
+						<Index>#x7100</Index>
+						<SubIndex>2</SubIndex>
+						<BitLen>8</BitLen>
+						<Name>safeOutputs</Name>
+						<DataType>USINT</DataType>
+					</Entry>
+					<Entry>
+						<Index>#x7100</Index>
+						<SubIndex>3</SubIndex>
+						<BitLen>16</BitLen>
+						<Name>connectionId</Name>
+						<DataType>UINT</DataType>
+					</Entry>
+					<Entry>
+						<Index>#x7100</Index>
+						<SubIndex>4</SubIndex>
+						<BitLen>16</BitLen>
+						<Name>fsoeCRC</Name>
+						<DataType>UINT</DataType>
+					</Entry>
+				</RxPdo>
 				<TxPdo Fixed="true" Mandatory="true" Sm="3">
 					<Index>#x1A00</Index>
 					<Name>Input mapping 0</Name>
@@ -1835,6 +2263,38 @@
 						<BitLen>64</BitLen>
 						<Name>Complex_Double</Name>
 						<DataType>LREAL</DataType>
+					</Entry>
+				</TxPdo>
+				<TxPdo Fixed="true" Mandatory="true" Sm="3">
+					<Index>#x1A10</Index>
+					<Name>FSOE_Tx process data mapping</Name>
+					<Entry>
+						<Index>#x6100</Index>
+						<SubIndex>1</SubIndex>
+						<BitLen>8</BitLen>
+						<Name>fsoeStatus</Name>
+						<DataType>USINT</DataType>
+					</Entry>
+					<Entry>
+						<Index>#x6100</Index>
+						<SubIndex>2</SubIndex>
+						<BitLen>8</BitLen>
+						<Name>safeInputs</Name>
+						<DataType>USINT</DataType>
+					</Entry>
+					<Entry>
+						<Index>#x6100</Index>
+						<SubIndex>3</SubIndex>
+						<BitLen>16</BitLen>
+						<Name>connectionId</Name>
+						<DataType>UINT</DataType>
+					</Entry>
+					<Entry>
+						<Index>#x6100</Index>
+						<SubIndex>4</SubIndex>
+						<BitLen>16</BitLen>
+						<Name>fsoeCRC</Name>
+						<DataType>UINT</DataType>
 					</Entry>
 				</TxPdo>
 				<Mailbox DataLinkLayer="true">

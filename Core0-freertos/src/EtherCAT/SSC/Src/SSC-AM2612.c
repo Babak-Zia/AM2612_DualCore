@@ -347,50 +347,6 @@ UINT8 yes(UINT16 index, UINT8 subindex, UINT32 dataSize, UINT16 MBXMEM * pData, 
 #endif
  return 0;
 }
-
-
-/////////////////////////////////////////////////////////////////////////////////////////
-/**
-\param     index               index of the requested object.
-\param     subindex            subindex of the requested object.
-\param     objSize             size of the requested object data, calculated with OBJ_GetObjectLength
-\param     pData               Pointer to the buffer where the data can be copied to
-\param     bCompleteAccess     Indicates if a complete read of all subindices of the
-                               object shall be done or not
-
- \return    result of the read operation (0 (success) or an abort code (ABORTIDX_.... defined in
-            sdosrv.h))
- *////////////////////////////////////////////////////////////////////////////////////////
-UINT8 No(UINT16 index, UINT8 subindex, UINT32 dataSize, UINT16 MBXMEM * pData, UINT8 bCompleteAccess) {
-#if _WIN32
-#pragma message ("Warning: Implement CoE write callback")
-#else
- #warning "Implement CoE write callback"
-#endif
- return 0;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////////////////
-/**
-\param     index               index of the requested object.
-\param     subindex            subindex of the requested object.
-\param     objSize             size of the requested object data, calculated with OBJ_GetObjectLength
-\param     pData               Pointer to the buffer where the data can be copied to
-\param     bCompleteAccess     Indicates if a complete read of all subindices of the
-                               object shall be done or not
-
- \return    result of the read operation (0 (success) or an abort code (ABORTIDX_.... defined in
-            sdosrv.h))
- *////////////////////////////////////////////////////////////////////////////////////////
-UINT8 yes(UINT16 index, UINT8 subindex, UINT32 dataSize, UINT16 MBXMEM * pData, UINT8 bCompleteAccess) {
-#if _WIN32
-#pragma message ("Warning: Implement CoE write callback")
-#else
- #warning "Implement CoE write callback"
-#endif
- return 0;
-}
 #if USE_DEFAULT_MAIN
 /////////////////////////////////////////////////////////////////////////////////////////
 /**

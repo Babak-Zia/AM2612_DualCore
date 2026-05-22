@@ -55,7 +55,7 @@
 /*                         Types / locals                                      */
 /* ========================================================================== */
 
-/** Snapshot of RxPDO image (0x1600 → 0x7000…0x7003), little-endian wire layout. */
+/** Snapshot of RxPDO image (0x1600 → 0x7000..0x7003), little-endian wire layout. */
 typedef struct
 {
     UINT8 u7000_byte;
@@ -137,4 +137,22 @@ void manage_pdo_tx(uint8_t *pdo_tx)
     (void)memcpy(&d[o], &Complex_Tx0x6003.Complex_Float, sizeof(Complex_Tx0x6003.Complex_Float));
     o = (uint16_t)(o + (uint16_t)sizeof(Complex_Tx0x6003.Complex_Float));
     (void)memcpy(&d[o], &Complex_Tx0x6003.Complex_Double, sizeof(Complex_Tx0x6003.Complex_Double));
+}
+
+void manage_pdo_fsoe_rx(uint8_t *pdo_rx)
+{
+    /* 0x1610 → 0x7100: fsoeCommand, safeOutputs, connectionId, fsoeCRC (48 bits, LE). */
+    FSOE_Rx0x7100.FsoeCommand = pdo_rx[0];
+    FSOE_Rx0x7100.SafeOutputs = pdo_rx[1];
+    (void)memcpy(&FSOE_Rx0x7100.ConnectionId, &pdo_rx[2], sizeof(FSOE_Rx0x7100.ConnectionId));
+    (void)memcpy(&FSOE_Rx0x7100.FsoeCRC, &pdo_rx[4], sizeof(FSOE_Rx0x7100.FsoeCRC));
+}
+
+void manage_pdo_fsoe_tx(uint8_t *pdo_tx)
+{
+    /* 0x1A10 → 0x6100: fsoeStatus, safeInputs, connectionId, fsoeCRC (48 bits, LE). */
+    pdo_tx[0] = FSOE_Tx0x6100.FsoeStatus;
+    pdo_tx[1] = FSOE_Tx0x6100.SafeInputs;
+    (void)memcpy(&pdo_tx[2], &FSOE_Tx0x6100.ConnectionId, sizeof(FSOE_Tx0x6100.ConnectionId));
+    (void)memcpy(&pdo_tx[4], &FSOE_Tx0x6100.FsoeCRC, sizeof(FSOE_Tx0x6100.FsoeCRC));
 }

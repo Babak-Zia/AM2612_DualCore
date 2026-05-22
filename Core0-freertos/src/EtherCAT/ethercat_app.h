@@ -39,22 +39,20 @@
 extern "C" {
 #endif
 
-/** PDO byte length for the 0x1A00 / 0x1600 process-data image (232 bits). */
-#define ETHERCAT_APP_PDO_IMAGE_BYTES   (29U)
+/** PDO byte length for 0x1600 / 0x1A00 (0x7000..0x7003 / 0x6000..0x6003), 232 bits. */
+#define ETHERCAT_APP_PDO_IMAGE_BYTES      (29U)
 
-/**
- * \brief Decode master output process data (RxPDO / outputs) into application variables.
- *
- * \param pdo_rx Points to the received PDO buffer (ETHERCAT_APP_PDO_IMAGE_BYTES bytes).
- */
+/** PDO byte length for 0x1610 / 0x1A10 (0x7100 / 0x6100 FSoE), 48 bits. */
+#define ETHERCAT_APP_FSOE_PDO_BYTES       (6U)
+
+/** Total RxPDO (SM2) / TxPDO (SM3) process data per ESI (29 + 6). */
+#define ETHERCAT_APP_PD_OUTPUT_BYTES      (ETHERCAT_APP_PDO_IMAGE_BYTES + ETHERCAT_APP_FSOE_PDO_BYTES)
+#define ETHERCAT_APP_PD_INPUT_BYTES       (ETHERCAT_APP_PDO_IMAGE_BYTES + ETHERCAT_APP_FSOE_PDO_BYTES)
+
 void manage_pdo_rx(uint8_t *pdo_rx);
-
-/**
- * \brief Encode application variables into slave input process data (TxPDO / inputs).
- *
- * \param pdo_tx Points to the transmit PDO buffer (ETHERCAT_APP_PDO_IMAGE_BYTES bytes).
- */
 void manage_pdo_tx(uint8_t *pdo_tx);
+void manage_pdo_fsoe_rx(uint8_t *pdo_rx);
+void manage_pdo_fsoe_tx(uint8_t *pdo_tx);
 
 #ifdef __cplusplus
 }
