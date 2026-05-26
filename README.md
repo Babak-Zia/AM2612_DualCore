@@ -1,8 +1,6 @@
 # AM2612 Dual-Core — EtherCAT Bridge + FSoE Worker
 
-Dual-core firmware for the **TI AM2612**: Core 0 (FreeRTOS) is the **EtherCAT bridge**; Core 1 (NoRTOS) is the **FSoE safety worker**. Inter-core traffic uses **`common/ipc_channel`** (shared SRAM + IpcNotify doorbell, Plan A same-cycle sync exchange). An optional startup **IPC self-test** validates the path before EtherCAT sources are integrated.
-
-The transport is the lowest-latency IPC available on this SoC: a shared SRAM region for the data plus the hardware **Mailbox** peripheral (wrapped by `IpcNotify`) for doorbell signaling. There is **no** RPMessage / virtio overhead in the critical path.
+Dual-core firmware for the **TI AM2612**: Core 0 (FreeRTOS) is the **EtherCAT bridge**; Core 1 (NoRTOS) is the **FSoE safety worker**. Inter-core traffic uses **`common/ipc_channel`**: **6-byte FSoE PDO** in shared SRAM, synchronized by **`req_seq` / `resp_seq`** (poll only, no mailbox IRQ). An optional startup **IPC self-test** in `ecat_bridge_app.c` exercises the same path before EtherCAT runs.
 
 ---
 
@@ -15,7 +13,8 @@ AM2612_DualCore/
 ├── README.md                            this file
 │
 ├── common/                              Shared transport (linked into both core projects)
-│   ├── ipc_channel.h / ipc_channel.c    **Production path** — zero-copy `gIpcCh` + IpcNotify
+│   ├── ipc_channel.h / ipc_channel.c    poll-only `gIpcCh` (req/resp seq + buffers)
+│   ├── fsoe_pdo.h / fsoe_pdo.c          6-byte FSoE PDO wire codec
 │
 ├── Core0-freertos/                      Core 0 (R5F-0) — EtherCAT bridge, FreeRTOS
 │   ├── src/
@@ -30,7 +29,8 @@ AM2612_DualCore/
 ├── Core1_nortos/                        Core 1 (R5F-1) — FSoE worker, NoRTOS
 │   ├── src/
 │   │   ├── main_core1.c                 entry point → `fsoe_worker_main()`
-│   │   └── fsoe_worker_app.h / .c       service loop + `fsoe_worker_process_payload()` swap-point
+│   │   ├── fsoe_worker_app.h / .c       poll loop + `fsoe_manager_process()` swap-point
+│   │   └── fsoe_manager.c / .h          FSoE handler stub (replace with product stack)
 │   ├── example.syscfg                   SysConfig for Core 1
 │   └── (mirrors Core0-freertos/ structure)
 │
@@ -41,55 +41,72 @@ AM2612_DualCore/
 
 `common/ipc_channel.c` is **linked** into both CCS projects (see `.project` → `linkedResources`).
 
-`Core0-freertos/src/ecat_bridge_app.c` and `Core1_nortos/src/fsoe_worker_app.c` use **`ipc_channel` only**: they read and write **`gIpcCh.req_buf` / `gIpcCh.resp_buf` directly** (no extra `memcpy` in the hot path). Doorbells use **`IPC_DOORBELL_SEND_FAST` (0)** from `ipc_channel.h` for minimum mailbox latency with **one transaction in flight** per direction; switch to **`IPC_DOORBELL_SEND_WAIT` (1)** if you pipeline multiple notifies and see drops.
+Both cores use **`gIpcCh.req_buf[0..5]`** and **`gIpcCh.resp_buf[0..5]`** for FSoE (`common/fsoe_pdo.h`). Only **one** synchronous exchange may be in flight per bus cycle.
 
 ---
 
-## Performance choices (this project)
+## Core 0 — where FSoE is sent to / received from Core 1
 
-| Choice | Why |
-|---|---|
-| **`ipc_channel` + in-place `gIpcCh` buffers** | Avoids copying the whole payload twice per round trip (the main cost the old helper layer added). |
-| **`IPC_DOORBELL_SEND_FAST`** | Skips the “wait for TX FIFO empty” spin in `IpcNotify_sendMsg` when the mailbox is not back-pressured — saves cycles on every transaction. |
-| **Non-cacheable `.bss.user_shared_mem`** | No `CacheP_*` in the loop; mandatory for correctness unless you move the section and add explicit cache ops. |
-| **Single in-flight request** | Keeps the worker’s single-slot `gWorkerNewReqSeq` model valid; do not start a new `send_request` before `wait_reply` completes unless you redesign for pipelining. |
+EtherCAT stack calls application hooks; FSoE IPC is only in **`manage_pdo_fsoe_*`** and **`fsoe_ipc_master_exchange`**.
 
-If you later need **RPMessage**, Linux coupling, or many endpoints, expect higher latency — stay on **`ipc_channel`** for bare R5F↔R5F throughput.
+```
+TwinCAT master (outputs)                    TwinCAT master (inputs)
+        │                                            ▲
+        ▼                                            │
+   ESC SM2 (RxPDO)                              ESC SM3 (TxPDO)
+        │                                            │
+PDO_OutputMapping()  ──ecatappl.c──►  APPL_OutputMapping()  tiescappl.c
+        │                                  case 0x1610:
+        │                                    manage_pdo_fsoe_rx(pdo_rx)     ethercat_app.c
+        │                                      └─ fsoe_ipc_master_exchange()  fsoe_ipc_master.c
+        │                                           ├─ memcpy → gIpcCh.req_buf   (6 B to Core 1)
+        │                                           ├─ ipc_channel_master_commit_request()
+        │                                           ├─ ipc_channel_master_wait_reply_usec()
+        │                                           └─ memcpy ← gIpcCh.resp_buf  (6 B from Core 1)
+        │                                      └─ fsoe_od_apply_tx_wire → FSOE_Tx0x6100
+        │
+PDO_InputMapping()   ◄──ecatappl.c──   APPL_InputMapping()   tiescappl.c
+                                           case 0x1A10:
+                                             manage_pdo_fsoe_tx(pdo_tx)  ← packs FSOE_Tx0x6100 → ESC
+```
+
+| Step | File | What |
+|------|------|------|
+| **Receive from master (FSoE Rx)** | `tiescappl.c` → `manage_pdo_fsoe_rx()` | 6 B from PDO `0x1610` (master → slave outputs) |
+| **Send to Core 1** | `fsoe_ipc_master.c` | `memcpy` into `gIpcCh.req_buf`, bump `req_seq` |
+| **Wait for Core 1** | `fsoe_ipc_master.c` | Poll until `gIpcCh.resp_seq == expected_seq` |
+| **Receive from Core 1** | `fsoe_ipc_master.c` | `memcpy` from `gIpcCh.resp_buf` into local `tx_wire` |
+| **Send to master (FSoE Tx)** | `tiescappl.c` → `manage_pdo_fsoe_tx()` | 6 B to PDO `0x1A10` from object `0x6100` |
+
+Core 1 mirror path: `fsoe_worker_app.c` — poll `req_seq` → read `req_buf` → `fsoe_manager_process()` → write `resp_buf` → set `resp_seq`.
 
 ---
 
 ## Runtime architecture
 
 ```
-Core 0 (FreeRTOS, R5F-0)                       Core 1 (NoRTOS, R5F-1)
-─────────────────────────                      ─────────────────────────
-main()                                         main()
- ├ System_init / Board_init                     ├ System_init / Board_init
- └ xTaskCreateStatic(ecat_main)                 └ fsoe_worker_main()
-   └ ecat_bridge_task()                             ├ Drivers_open / Board_driversOpen
-       ├ Drivers_open / board_flash / Board_*       ├ ipc_channel_worker_init
-       ├ ipc_channel_master_init                    ├ ipc_channel_sync_all() ◄──┐
-       ├ ipc_channel_sync_all() ◄───────────────────┘                        │
-       ├ [optional] FSoE IPC self-test                                       │
-       └ ethercat_subdevice_start() → TaskP task1 (MainLoop) + PDI/LED/SYNC │
-       (this FreeRTOS task then exits)                                       │
-                                                                              │
-Core 1: `for (;;)` → wait_request → fsoe_worker_process_payload → send_reply
+Core 0 (FreeRTOS)                         Core 1 (NoRTOS)
+─────────────────                         ─────────────────
+ecat_bridge_task: ipc_channel_master_init
+ethercat_subdevice_start → MainLoop
+  PDO_OutputMapping → manage_pdo_fsoe_rx    fsoe_worker_main:
+    → fsoe_ipc_master_exchange                poll req_seq
+  PDO_InputMapping → manage_pdo_fsoe_tx         handle 6 B → resp_buf
+                                                set resp_seq
 ```
 
-### Why this is fast
+---
 
-| Choice | Effect |
+## IPC design (poll-only)
+
+| Choice | Why |
 |---|---|
-| Shared SRAM, zero-copy in demo | Master and worker touch **`gIpcCh.req_buf` / `resp_buf`** directly — no helper-layer `memcpy`. |
-| **`IPC_DOORBELL_SEND_FAST` (0)** | Demo uses fast doorbell mode; use **`IPC_DOORBELL_SEND_WAIT` (1)** if you burst notifies and see drops. |
-| No spinlock | Each control word and each buffer has a single writer; the doorbell **is** the synchronization point |
-| Doorbell carries sequence number | Receiver detects drops / stale replies without a second handshake |
-| `SemaphoreP` posted from ISR | Master wakes within microseconds, bypassing the 1 ms FreeRTOS tick |
-| `WFI` on worker | Lowest-power, lowest-jitter wake on ISR |
-| `.bss.user_shared_mem` is non-cacheable (MPU) | Zero `CacheP_*` calls in the hot path |
+| **`req_seq` / `resp_seq`** | Core 0 publishes a request; Core 1 publishes a reply — no IpcNotify, no ISR on the data path. |
+| **6 B in shared SRAM** | `FSOE_IPC_RX_OFFSET` / `FSOE_IPC_TX_OFFSET` in `fsoe_pdo.h` (both 0). |
+| **Non-cacheable `.bss.user_shared_mem`** | Both cores see the same physical bytes; no `CacheP_*` in the loop. |
+| **One in-flight transaction** | Do not start a new exchange until the previous `wait_reply` completes. |
 
-Expected wake-up RTT (excluding `fsoe_worker_process_payload` time): **~3-7 µs** for the doorbell/IRQ/semaphore chain alone. Total RTT also includes the time to read/write `IPC_BUF_LEN` bytes of SRAM and run the worker stub (currently a per-byte increment).
+Typical round-trip (stub manager): **~10–20 µs** in the PDO path, dominated by memcpy and `fsoe_manager_process()`.
 
 ---
 
@@ -111,71 +128,16 @@ ipc_channel_t gIpcCh __attribute__((aligned(128),
 
 The linker on both cores maps `.bss.user_shared_mem` to the **same physical SRAM address**, so writes from one core are visible to the other through the section symbol. 128-byte alignment prevents false sharing with the R5F cache-line policy.
 
-### Shared transport API (`common/ipc_channel.h` / `ipc_channel.c`)
-
-Source of truth for behavior is the **block comments on each function** in `ipc_channel.c`. The following is a prose reference for the README.
-
-#### Prerequisites
-
-- Call **`Drivers_open()`** (and normally **`Board_driversOpen()`**) on each core *before* **`ipc_channel_*_init`**, **`ipc_channel_sync_all`**, or any **`ipc_channel_*_send_*`**. IpcNotify depends on SysConfig-generated driver init.
-- On Core 0, **`Drivers_open()`** / **`Board_driversOpen()`** run at the start of **`ecat_bridge_task()`** after **`vTaskStartScheduler()`**. **`ipc_channel_master_init()`** and **`ipc_channel_sync_all()`** run there too — **`ipc_channel_master_init()`** uses RTOS-backed **`SemaphoreP`** and must not run from **`main()`** before the scheduler starts.
-- **`ipc_channel_sync_all()`** must run on **both** cores **after** each side has called its `*_init`, so neither core sends doorbells before the peer has registered its notify client.
-
-#### One transaction, correct order
-
-| Step | Core 0 (master) | Core 1 (worker) |
-|---|---|---|
-| 1 | Write `gIpcCh.req_buf[]` | — |
-| 2 | `seq = ipc_channel_master_commit_request()` | — |
-| 3 | `ipc_channel_master_send_request(seq, IPC_DOORBELL_SEND_FAST)` | ISR stores `seq` → main wakes |
-| 4 | `ipc_channel_master_wait_reply_usec(timeoutUsec)` | `seq = ipc_channel_worker_wait_request()` |
-| 5 | (optional) check `gIpcCh.resp_seq == seq` | Read `req_buf`, compute into `resp_buf` |
-| 6 | Read `resp_buf` | `ipc_channel_worker_send_reply(seq, IPC_DOORBELL_SEND_FAST)` → master ISR posts sem |
-
-**`ipc_channel_master_wait_reply_usec`** busy-spins with `SemaphoreP_pend(..., 0)` until the ISR posts the semaphore or the microsecond deadline elapses (PDO/FSoE path uses **500 µs** in `ecat_bridge_app.h`).
-
-The **`seq`** value ties together: `req_seq` publish, notify payload, `resp_seq`, and application-level “which transaction is this?” checks (drops, stale replies).
-
-#### Functions (summary)
+### `ipc_channel` API (`common/ipc_channel.h`)
 
 | Function | Core | Role |
-|---|---|---|
-| **`ipc_channel_master_init`** | 0 | Build binary semaphore (starts “taken” so first `pend` blocks); register **`IPC_CLIENT_ID`** so worker → master notifies run **`ipc_on_worker_reply`**, which **`SemaphoreP_post`**s the master task. |
-| **`ipc_channel_master_commit_request`** | 0 | **Single-writer bump** of `gIpcCh.req_seq`. Call **after** filling `req_buf`, **before** `send_request`. Returns the new sequence used as the transaction id. |
-| **`ipc_channel_master_send_request(seq, waitFifoEmpty)`** | 0 | **`IpcNotify_sendMsg`** to **`IPC_CORE_WORKER`**. Pass **`IPC_DOORBELL_SEND_FAST`** for minimum latency (one in-flight notify); **`IPC_DOORBELL_SEND_WAIT`** if the mailbox FIFO might fill. |
-| **`ipc_channel_master_wait_reply_usec(timeoutUsec)`** | 0 | **`ClockP_getTimeUsec`** deadline + **`SemaphoreP_pend(..., 0)`** spin until reply or timeout. |
-| **`ipc_channel_worker_init`** | 1 | Clear pending-request flag; register **`IPC_CLIENT_ID`** so master → worker notifies run **`ipc_on_master_request`**, which stores the **32-bit payload** (`seq`) for the main loop. |
-| **`ipc_channel_worker_wait_request`** | 1 | **`WFI`** loop until `gWorkerNewReqSeq != 0`, then **clear** it and **return** `seq`. **Not** safe for nested/concurrent callers; one worker loop is assumed. If the master overruns the worker, only the **latest** seq is kept (single-slot flag). |
-| **`ipc_channel_worker_send_reply(seq, waitFifoEmpty)`** | 1 | Set **`gIpcCh.resp_seq = seq`**, then **`IpcNotify_sendMsg`** to **`IPC_CORE_MASTER`**. Call **after** `resp_buf` is fully written. Same **`FAST` / `WAIT`** trade-off as master send. |
-| **`ipc_channel_sync_all`** | both | **`IpcNotify_syncAll(WAIT_FOREVER)`** — rendezvous barrier so startup ordering is safe. |
-
-#### Private ISR callbacks (in `ipc_channel.c` only)
-
-- **`ipc_on_worker_reply`** (Core 0): posts **`gMasterRespSem`**. Keep ISR minimal; no **`DebugP_log`**.
-- **`ipc_on_master_request`** (Core 1): assigns **`gWorkerNewReqSeq = msgValue`**. Same rule: no logging from ISR on NoRTOS shared-log path.
-
-#### What this layer deliberately does not do
-
-- No **spinlocks** (single-writer fields + doorbell ordering are enough for this ping-pong).
-- No **cache maintenance** (assumes **`.bss.user_shared_mem`** is **non-cacheable** per MPU; if you change that, add **`CacheP_*`** in the app around buffer access).
-- No **payload validation** or **UART** output.
-
-For failure-mode terminology (freeze vs seq mismatch vs corrupt bytes), see **Sequence-number protocol** below (`ipc_channel_master_wait_reply_usec`).
-
----
-
-## Sequence-number protocol
-
-Every transaction has a monotonically increasing `uint32_t` sequence number, set by the master and echoed back by the worker. The same number is carried on the IpcNotify doorbell **and** written into the channel, which lets the master detect every interesting failure mode with a single equality test:
-
-| Failure mode | Detection | Counter | Typical log (demo) |
-|---|---|---|---|
-| **Drop / stale** | `gIpcCh.resp_seq != expected_seq` after `ipc_channel_master_wait_reply_usec` succeeds | `mis_seq` | `SEQ MISMATCH sent=… got=…` |
-| **Freeze** | `ipc_channel_master_wait_reply_usec` returns non-success after timeout | `freezes` | `FREEZE …` |
-| **Data corruption** | per-byte `resp_buf[i] != (uint8_t)(req_buf[i] + 1)` | `failed` | `FAIL … bytes wrong` |
-| **Success** | pend OK, `resp_seq` match, bytes verify | `passed` | `PASS seq=… RTT=…` |
-
-Final summary line prints `min / avg / max` RTT in microseconds across all PASS iterations.
+|----------|------|------|
+| `ipc_channel_master_init` | 0 | No-op placeholder (call after `Drivers_open` in `ecat_bridge_task`). |
+| `ipc_channel_master_commit_request` | 0 | Increment `gIpcCh.req_seq` after filling `req_buf`. |
+| `ipc_channel_master_wait_reply_usec(expected, timeout)` | 0 | Poll until `resp_seq == expected` or timeout (`FSOE_IPC_REPLY_TIMEOUT_US`). |
+| `ipc_channel_worker_init` | 1 | Remember current `req_seq`. |
+| `ipc_channel_worker_wait_request` | 1 | Spin until `req_seq` changes. |
+| `ipc_channel_worker_send_reply(seq)` | 1 | Write `resp_seq` after filling `resp_buf`. |
 
 ---
 
@@ -295,22 +257,17 @@ Below ~10 µs period the doorbell round-trip itself becomes the limit. At that p
 
 ---
 
-## FSoE dual-core data path
-
-Cyclic flow (one bus cycle):
-
-1. **Core 0** — `manage_pdo_fsoe_rx()` in `ethercat_app.c` (from `APPL_OutputMapping` / PDO `0x1610`): master FSOE RxPDO bytes → `fsoe_ipc_master_exchange()`.
-2. **IPC** — `gIpcCh.req_buf[0..5]` = Rx wire image; Core 1 doorbell; `resp_buf[0..5]` = Tx wire image (`common/fsoe_pdo.h`).
-3. **Core 1** — `fsoe_worker_app.c` decodes Rx, calls **`fsoe_manager_process()`** in `fsoe_manager.c`, encodes Tx, replies.
-4. **Core 0** — exchange returns; `0x6100` OD updated; **`manage_pdo_fsoe_tx()`** packs `0x1A10` for the master on `APPL_InputMapping`.
+## FSoE modules
 
 | Module | Core | Role |
 |--------|------|------|
-| `common/fsoe_pdo.c` | both | 6-byte PDO wire codec |
-| `fsoe_ipc_master.c` | 0 | sync IPC round trip |
-| `fsoe_manager.c` | 1 | **swap-point** — replace stub with product FSoE stack |
+| `ethercat_app.c` | 0 | `manage_pdo_fsoe_rx` / `tx` — PDO ↔ IPC ↔ CoE `0x7100` / `0x6100` |
+| `fsoe_ipc_master.c` | 0 | One exchange: `req_buf` → wait → `resp_buf` |
+| `fsoe_worker_app.c` | 1 | Poll loop servicing `gIpcCh` |
+| `fsoe_manager.c` | 1 | **Swap-point** — product FSoE stack |
+| `common/fsoe_pdo.c` | both | 6-byte wire encode/decode |
 
-**Swap-point**: implement `fsoe_manager_process()` — must finish within `FSOE_IPC_REPLY_TIMEOUT_US` (Core 0 busy-waits in the PDO path).
+**Swap-point:** replace `fsoe_manager_process()`; keep handler time within `FSOE_IPC_REPLY_TIMEOUT_US` (500 µs default in `fsoe_ipc_master.h`).
 
 ---
 
@@ -321,17 +278,8 @@ Cyclic flow (one bus cycle):
 If you ever relocate the channel to a cacheable region (for higher SRAM bandwidth on very large buffers), add cache ops at producer/consumer boundaries in the core `src/` application files (or wrap calls around `ipc_channel_*`):
 
 ```c
-// Core 0 (master), AFTER filling req_buf, BEFORE sending the doorbell:
-CacheP_wb (gIpcCh.req_buf,  IPC_BUF_LEN, CacheP_TYPE_ALLD);
-
-// Core 0 (master), AFTER receiving the doorbell, BEFORE reading resp_buf:
-CacheP_inv(gIpcCh.resp_buf, IPC_BUF_LEN, CacheP_TYPE_ALLD);
-
-// Core 1 (worker), AFTER receiving the doorbell, BEFORE reading req_buf:
-CacheP_inv(gIpcCh.req_buf,  IPC_BUF_LEN, CacheP_TYPE_ALLD);
-
-// Core 1 (worker), AFTER filling resp_buf, BEFORE sending the doorbell:
-CacheP_wb (gIpcCh.resp_buf, IPC_BUF_LEN, CacheP_TYPE_ALLD);
+// After filling req_buf / before reading resp_buf on Core 0 (and the inverse on Core 1):
+CacheP_wb / CacheP_inv on gIpcCh.req_buf and gIpcCh.resp_buf as appropriate.
 ```
 
 Forgetting any one of these on cacheable memory produces stale reads that look like random data corruption — the most expensive class of bug to debug. Stay non-cacheable unless profiling explicitly shows a need.
@@ -344,7 +292,7 @@ Forgetting any one of these on cacheable memory produces stale reads that look l
 2. **Refresh** each project (right-click → Refresh, F5) so the IDE picks up the current source files.
 3. **Clean** each project (Project → Clean) to wipe stale `Debug/` artifacts left over from before the rename.
 4. **Build All**. The system project bundles both `.appimage` files into a combined boot image via `makefile_system_ccs_bootimage_gen`.
-5. **Launch** the debug configuration in `.theia/launch.json`. Both R5F cores boot, hit `IpcNotify_syncAll`, then start exchanging.
+5. **Launch** the debug configuration in `.theia/launch.json`. Both R5F cores boot; Core 1 enters the poll loop; Core 0 runs EtherCAT (and optional IPC self-test first).
 
 Console output (after both cores rendezvous):
 
@@ -373,13 +321,13 @@ Exact numbers depend on R5F clock, UART contention, cache state, and what's happ
 
 | Mechanism | Round-trip latency | Throughput | When to use |
 |---|---|---|---|
-| **Shared SRAM + IpcNotify doorbell** (this demo) | **~3-7 us** | SRAM bandwidth (GB/s) | Real-time, custom protocol, fixed peers |
-| Shared SRAM + busy-polling flag (no IRQ) | ~50-200 ns | SRAM bandwidth | Hard µs-scale latency, one core can be 100% spinning |
+| **Shared SRAM + req_seq poll** (this project) | **~10-20 us** (FSoE stub) | SRAM bandwidth | Cyclic PDO, dedicated Core 1 worker loop |
+| Shared SRAM + IpcNotify doorbell | ~3-7 us wake + handler | Same SRAM | Optional; removed here after notify-loss issues |
 | `IpcNotify` payload only (no shared mem) | ~1-3 us | <= 4 bytes per message | Pure signaling / tiny commands |
 | **RPMessage** (virtio rings) | ~10-100 us | Lower (copy + protocol) | Heterogeneous (R5F ↔ A53/Linux) or many endpoints |
 | Mailbox IP raw register access | ~0.5-2 us | <= 8 x 32-bit FIFO | Bare-metal speed; little gain over IpcNotify in practice |
 
-For two R5F cores on the same SoC, the shared-SRAM + IpcNotify combination is the lowest-latency option that's still maintainable. RPMessage would be a regression here.
+For this FSoE worker, **poll-only shared SRAM** is the simplest reliable pattern. RPMessage or doorbells add complexity without helping the 6-byte cyclic path.
 
 ---
 

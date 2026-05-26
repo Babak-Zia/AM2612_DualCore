@@ -1,5 +1,5 @@
 /*
- * fsoe_ipc_master.c — Core 0 Plan A transport for one FSoE PDO exchange per cycle.
+ * fsoe_ipc_master.c — Core 0: one FSoE PDO exchange (6 B) with Core 1 via gIpcCh.
  */
 
 #include <string.h>
@@ -25,9 +25,7 @@ int32_t fsoe_ipc_master_exchange(const uint8_t rx_wire[FSOE_PDO_RX_BYTES],
     expected_seq = ipc_channel_master_commit_request();
     t0           = (uint32_t)ClockP_getTimeUsec();
 
-    ipc_channel_master_send_request(expected_seq, IPC_DOORBELL_SEND_FAST);
-
-    status = ipc_channel_master_wait_reply_usec(FSOE_IPC_REPLY_TIMEOUT_US);
+    status = ipc_channel_master_wait_reply_usec(expected_seq, FSOE_IPC_REPLY_TIMEOUT_US);
 
     t1 = (uint32_t)ClockP_getTimeUsec();
     if (rtt_us_out != NULL)

@@ -112,12 +112,7 @@ void manage_pdo_rx(uint8_t *pdo_rx)
     Single_Short_Rx0x7002 = dec.u7002_short;
     /* Debug: 0x7002 → 0x6002 so the master TxPDO reflects the last RxPDO short (packet dump / tracing). */
     Single_Short_Tx0x6002 = dec.u7002_short;
-    Complex_Rx0x7003.Complex_Byte = dec.u7003_complex_byte;
-    Complex_Rx0x7003.Complex_Short = dec.u7003_complex_short;
-    Complex_Rx0x7003.Complex_Long = dec.u7003_complex_long;
-    Complex_Rx0x7003.Complex_Float = dec.u7003_complex_float;
-    Complex_Rx0x7003.Complex_Double = dec.u7003_complex_double;
-}
+ }
 
 void manage_pdo_tx(uint8_t *pdo_tx)
 {
@@ -164,17 +159,24 @@ static void fsoe_od_apply_tx_wire(const uint8_t wire[FSOE_PDO_TX_BYTES])
 
 void manage_pdo_fsoe_rx(uint8_t *pdo_rx)
 {
-    uint8_t tx_wire[FSOE_PDO_TX_BYTES];
-    int32_t status;
+    uint8_t  tx_wire[FSOE_PDO_TX_BYTES];
+    uint32_t rtt_us = 0U;
+    int32_t  status;
 
     /*
      * Master FSOE RxPDO (0x1610) → Core 1 manager → FSOE TxPDO for master (0x1A10).
      * CoE objects 0x7100 / 0x6100 are updated for visibility; cyclic Tx uses 0x6100
      * via manage_pdo_fsoe_tx() in APPL_InputMapping.
+     *
+     * Complex_Rx0x7003.Complex_Long — last Core0↔Core1 FSoE IPC round-trip (µs); mirrored
+     * to Complex_Tx0x6003 in APPL_Application for master scope on 0x1A00.
      */
     fsoe_od_apply_rx_wire(pdo_rx);
 
-    status = fsoe_ipc_master_exchange(pdo_rx, tx_wire, NULL);
+    status = fsoe_ipc_master_exchange(pdo_rx, tx_wire, &rtt_us);
+
+    Complex_Rx0x7003.Complex_Long = (UINT64)rtt_us;
+
     if (status == SystemP_SUCCESS)
     {
         fsoe_od_apply_tx_wire(tx_wire);

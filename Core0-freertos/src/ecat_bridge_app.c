@@ -48,8 +48,6 @@ static void fsoe_ipc_bringup(void)
 
     status = ipc_channel_master_init();
     DebugP_assert(status == SystemP_SUCCESS);
-
-    ipc_channel_sync_all();
     DebugP_log("[ECAT] Core1 FSoE worker ready\r\n");
 }
 

@@ -1,11 +1,9 @@
 /*
- * fsoe_worker_app.c — Core 1 FSoE safety worker (NoRTOS).
- *
- * Waits on ipc_channel doorbell, runs fsoe_manager on the Rx PDO in req_buf,
- * writes Tx PDO to resp_buf, replies to Core 0.
+ * fsoe_worker_app.c — Core 1: poll req_seq, process 6 B FSoE PDO, publish resp_seq.
  */
 
 #include <stdint.h>
+#include <string.h>
 
 #include <kernel/dpl/DebugP.h>
 #include <kernel/dpl/SystemP.h>
@@ -32,8 +30,6 @@ static void fsoe_ipc_service_init(void)
     DebugP_assert(status == SystemP_SUCCESS);
 
     fsoe_manager_init();
-
-    ipc_channel_sync_all();
 }
 
 static void fsoe_worker_handle_request(void)
@@ -53,21 +49,14 @@ void fsoe_worker_main(void *args)
     (void)args;
 
     fsoe_worker_board_init();
-
-    DebugP_log("[FSOE] worker starting (client=%u, PDO %u+%u B)\r\n",
-               (unsigned)IPC_CLIENT_ID,
-               (unsigned)FSOE_PDO_RX_BYTES,
-               (unsigned)FSOE_PDO_TX_BYTES);
-
     fsoe_ipc_service_init();
-    DebugP_log("[FSOE] ready — service loop\r\n");
+
+    DebugP_log("[FSOE] worker ready (poll IPC, %u B PDO)\r\n", (unsigned)FSOE_PDO_TX_BYTES);
 
     for (;;)
     {
-        uint32_t seq = ipc_channel_worker_wait_request();
-
+        (void)ipc_channel_worker_wait_request();
         fsoe_worker_handle_request();
-
-        ipc_channel_worker_send_reply(seq, IPC_DOORBELL_SEND_FAST);
+        ipc_channel_worker_send_reply(gIpcCh.req_seq);
     }
 }

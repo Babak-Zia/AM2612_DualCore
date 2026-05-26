@@ -56,6 +56,8 @@ void manage_pdo_tx(uint8_t *pdo_tx);
 void manage_pdo_fsoe_rx(uint8_t *pdo_rx);
 void manage_pdo_fsoe_tx(uint8_t *pdo_tx);
 
+/* Complex_Rx0x7003.Complex_Long — FSoE IPC RTT (µs), set in manage_pdo_fsoe_rx. */
+
 #ifdef __cplusplus
 }
 #endif
