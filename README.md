@@ -56,27 +56,27 @@ TwinCAT master (outputs)                    TwinCAT master (inputs)
    ESC SM2 (RxPDO)                              ESC SM3 (TxPDO)
         │                                            │
 PDO_OutputMapping()  ──ecatappl.c──►  APPL_OutputMapping()  tiescappl.c
-        │                                  case 0x1610:
+        │                                  case 0x160F:
         │                                    manage_pdo_fsoe_rx(pdo_rx)     ethercat_app.c
         │                                      └─ fsoe_ipc_master_exchange()  fsoe_ipc_master.c
-        │                                           ├─ memcpy → gIpcCh.req_buf   (6 B to Core 1)
+        │                                           ├─ memcpy → gIpcCh.req_buf   (11 B to Core 1)
         │                                           ├─ ipc_channel_master_commit_request()
         │                                           ├─ ipc_channel_master_wait_reply_usec()
-        │                                           └─ memcpy ← gIpcCh.resp_buf  (6 B from Core 1)
-        │                                      └─ fsoe_od_apply_tx_wire → FSOE_Tx0x6100
+        │                                           └─ memcpy ← gIpcCh.resp_buf  (11 B from Core 1)
+        │                                      └─ fsoe_od_apply_tx_wire → 0x60F0 / 0x60F1
         │
 PDO_InputMapping()   ◄──ecatappl.c──   APPL_InputMapping()   tiescappl.c
-                                           case 0x1A10:
-                                             manage_pdo_fsoe_tx(pdo_tx)  ← packs FSOE_Tx0x6100 → ESC
+                                           case 0x1A0F:
+                                             manage_pdo_fsoe_tx(pdo_tx)  ← packs 0x60F0/0x60F1 → ESC
 ```
 
 | Step | File | What |
 |------|------|------|
-| **Receive from master (FSoE Rx)** | `tiescappl.c` → `manage_pdo_fsoe_rx()` | 6 B from PDO `0x1610` (master → slave outputs) |
+| **Receive from master (FSoE Rx)** | `tiescappl.c` → `manage_pdo_fsoe_rx()` | 11 B from PDO `0x160F` (master → slave outputs) |
 | **Send to Core 1** | `fsoe_ipc_master.c` | `memcpy` into `gIpcCh.req_buf`, bump `req_seq` |
 | **Wait for Core 1** | `fsoe_ipc_master.c` | Poll until `gIpcCh.resp_seq == expected_seq` |
 | **Receive from Core 1** | `fsoe_ipc_master.c` | `memcpy` from `gIpcCh.resp_buf` into local `tx_wire` |
-| **Send to master (FSoE Tx)** | `tiescappl.c` → `manage_pdo_fsoe_tx()` | 6 B to PDO `0x1A10` from object `0x6100` |
+| **Send to master (FSoE Tx)** | `tiescappl.c` → `manage_pdo_fsoe_tx()` | 11 B to PDO `0x1A0F` from objects `0x60F0` / `0x60F1` |
 
 Core 1 mirror path: `fsoe_worker_app.c` — poll `req_seq` → read `req_buf` → `fsoe_manager_process()` → write `resp_buf` → set `resp_seq`.
 
@@ -91,7 +91,7 @@ ecat_bridge_task: ipc_channel_master_init
 ethercat_subdevice_start → MainLoop
   PDO_OutputMapping → manage_pdo_fsoe_rx    fsoe_worker_main:
     → fsoe_ipc_master_exchange                poll req_seq
-  PDO_InputMapping → manage_pdo_fsoe_tx         handle 6 B → resp_buf
+  PDO_InputMapping → manage_pdo_fsoe_tx         handle 11 B → resp_buf
                                                 set resp_seq
 ```
 
@@ -261,11 +261,11 @@ Below ~10 µs period the doorbell round-trip itself becomes the limit. At that p
 
 | Module | Core | Role |
 |--------|------|------|
-| `ethercat_app.c` | 0 | `manage_pdo_fsoe_rx` / `tx` — PDO ↔ IPC ↔ CoE `0x7100` / `0x6100` |
+| `ethercat_app.c` | 0 | `manage_pdo_fsoe_rx` / `tx` — PDO ↔ IPC ↔ CoE `0x70F0`/`0x70F1` / `0x60F0`/`0x60F1` |
 | `fsoe_ipc_master.c` | 0 | One exchange: `req_buf` → wait → `resp_buf` |
 | `fsoe_worker_app.c` | 1 | Poll loop servicing `gIpcCh` |
 | `fsoe_manager.c` | 1 | **Swap-point** — product FSoE stack |
-| `common/fsoe_pdo.c` | both | 6-byte wire encode/decode |
+| `common/fsoe_pdo.c` | both | 11-byte wire encode/decode |
 
 **Swap-point:** replace `fsoe_manager_process()`; keep handler time within `FSOE_IPC_REPLY_TIMEOUT_US` (500 µs default in `fsoe_ipc_master.h`).
 

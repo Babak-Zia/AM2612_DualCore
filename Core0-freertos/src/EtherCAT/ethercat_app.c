@@ -140,10 +140,12 @@ static void fsoe_od_apply_rx_wire(const uint8_t wire[FSOE_PDO_RX_BYTES])
     fsoe_pdo_rx_t rx;
 
     fsoe_pdo_rx_wire_decode(wire, &rx);
-    FSOE_Rx0x7100.FsoeCommand   = rx.fsoe_command;
-    FSOE_Rx0x7100.SafeOutputs   = rx.safe_outputs;
-    FSOE_Rx0x7100.ConnectionId  = rx.connection_id;
-    FSOE_Rx0x7100.FsoeCRC       = rx.fsoe_crc;
+    FSOE_Com_Rx0x70F0.Command     = rx.command;
+    FSOE_Com_Rx0x70F0.CRC_0       = rx.crc_0;
+    FSOE_Com_Rx0x70F0.CRC_1       = rx.crc_1;
+    FSOE_Com_Rx0x70F0.ConnectioID  = rx.connection_id;
+    FSOE_Data_Rx0x70F1.Safety_Data1 = rx.safety_data1;
+    FSOE_Data_Rx0x70F1.Safety_Data2 = rx.safety_data2;
 }
 
 static void fsoe_od_apply_tx_wire(const uint8_t wire[FSOE_PDO_TX_BYTES])
@@ -151,10 +153,12 @@ static void fsoe_od_apply_tx_wire(const uint8_t wire[FSOE_PDO_TX_BYTES])
     fsoe_pdo_tx_t tx;
 
     fsoe_pdo_tx_wire_decode(wire, &tx);
-    FSOE_Tx0x6100.FsoeStatus    = tx.fsoe_status;
-    FSOE_Tx0x6100.SafeInputs    = tx.safe_inputs;
-    FSOE_Tx0x6100.ConnectionId  = tx.connection_id;
-    FSOE_Tx0x6100.FsoeCRC       = tx.fsoe_crc;
+    FSOE_Com_TX0x60F0.Command     = tx.command;
+    FSOE_Com_TX0x60F0.CRC_0       = tx.crc_0;
+    FSOE_Com_TX0x60F0.CRC_1       = tx.crc_1;
+    FSOE_Com_TX0x60F0.ConnectioID  = tx.connection_id;
+    FSOE_Data_TX0x60F1.Safety_Data1 = tx.safety_data1;
+    FSOE_Data_TX0x60F1.Safety_Data2 = tx.safety_data2;
 }
 
 void manage_pdo_fsoe_rx(uint8_t *pdo_rx)
@@ -164,9 +168,8 @@ void manage_pdo_fsoe_rx(uint8_t *pdo_rx)
     int32_t  status;
 
     /*
-     * Master FSOE RxPDO (0x1610) → Core 1 manager → FSOE TxPDO for master (0x1A10).
-     * CoE objects 0x7100 / 0x6100 are updated for visibility; cyclic Tx uses 0x6100
-     * via manage_pdo_fsoe_tx() in APPL_InputMapping.
+     * Master FSOE RxPDO (0x160F) → Core 1 manager → FSOE TxPDO for master (0x1A0F).
+     * CoE 0x70F0/0x70F1 and 0x60F0/0x60F1 updated for visibility.
      *
      * Complex_Rx0x7003.Complex_Long — last Core0↔Core1 FSoE IPC round-trip (µs); mirrored
      * to Complex_Tx0x6003 in APPL_Application for master scope on 0x1A00.
@@ -188,10 +191,12 @@ void manage_pdo_fsoe_tx(uint8_t *pdo_tx)
     fsoe_pdo_tx_t tx;
     uint8_t       wire[FSOE_PDO_TX_BYTES];
 
-    tx.fsoe_status    = FSOE_Tx0x6100.FsoeStatus;
-    tx.safe_inputs    = FSOE_Tx0x6100.SafeInputs;
-    tx.connection_id  = FSOE_Tx0x6100.ConnectionId;
-    tx.fsoe_crc       = FSOE_Tx0x6100.FsoeCRC;
+    tx.command        = FSOE_Com_TX0x60F0.Command;
+    tx.crc_0          = FSOE_Com_TX0x60F0.CRC_0;
+    tx.crc_1          = FSOE_Com_TX0x60F0.CRC_1;
+    tx.connection_id  = FSOE_Com_TX0x60F0.ConnectioID;
+    tx.safety_data1   = FSOE_Data_TX0x60F1.Safety_Data1;
+    tx.safety_data2   = FSOE_Data_TX0x60F1.Safety_Data2;
 
     fsoe_pdo_tx_wire_encode(&tx, wire);
     (void)memcpy(pdo_tx, wire, FSOE_PDO_TX_BYTES);

@@ -14,14 +14,14 @@ void fsoe_manager_init(void)
 void fsoe_manager_process(const fsoe_pdo_rx_t *rx, fsoe_pdo_tx_t *tx)
 {
     /*
-     * TODO: call the real FSoE slave stack (frame decode, connection state machine,
-     * safeInputs/safeOutputs, CRC). This stub only preserves connectionId and
-     * passes safe_outputs → safe_inputs for bring-up.
+     * TODO: call the real FSoE slave stack. Stub: loop back safe data and placeholder CRC.
      */
     (void)memset(tx, 0, sizeof(*tx));
 
-    tx->fsoe_status     = 0x01U;
-    tx->safe_inputs     = rx->safe_outputs;
-    tx->connection_id   = rx->connection_id;
-    tx->fsoe_crc        = (uint16_t)(rx->fsoe_crc ^ 0xFFFFU);
+    tx->command       = 0x01U;
+    tx->safety_data1  = rx->safety_data1;
+    tx->safety_data2  = rx->safety_data2;
+    tx->connection_id = rx->connection_id;
+    tx->crc_0         = 1234;//(uint16_t)(rx->crc_0 ^ 0x1234U);
+    tx->crc_1         = 5678;//(uint16_t)(rx->crc_1 ^ 0x5678U);
 }

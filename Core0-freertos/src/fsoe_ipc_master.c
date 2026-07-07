@@ -1,5 +1,5 @@
 /*
- * fsoe_ipc_master.c — Core 0: one FSoE PDO exchange (6 B) with Core 1 via gIpcCh.
+ * fsoe_ipc_master.c — Core 0: one FSoE PDO exchange (11 B) with Core 1 via gIpcCh.
  */
 
 #include <string.h>

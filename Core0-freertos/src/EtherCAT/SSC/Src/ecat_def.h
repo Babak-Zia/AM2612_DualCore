@@ -917,7 +917,7 @@ SERIAL_NUMBER: Object 0x1018 SI4 (EtherCAT product serial number) */
 /** 
 DEVICE_PROFILE_TYPE: Slave device type (Object 0x1000)  */
 #ifndef DEVICE_PROFILE_TYPE
-#define DEVICE_PROFILE_TYPE                       0x00001389
+#define DEVICE_PROFILE_TYPE                       0x00C31389
 #endif
 
 /** 

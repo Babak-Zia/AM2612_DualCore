@@ -77,10 +77,12 @@ static void fsoe_ipc_self_test_make_rx(uint8_t rx_wire[FSOE_PDO_RX_BYTES])
 {
     fsoe_pdo_rx_t rx;
 
-    rx.fsoe_command   = (uint8_t)rand();
-    rx.safe_outputs   = (uint8_t)rand();
+    rx.command        = (uint8_t)rand();
+    rx.safety_data1   = (uint16_t)((uint32_t)rand() & 0xFFFFU);
+    rx.safety_data2   = (uint16_t)((uint32_t)rand() & 0xFFFFU);
     rx.connection_id  = (uint16_t)((uint32_t)rand() & 0xFFFFU);
-    rx.fsoe_crc       = (uint16_t)((uint32_t)rand() & 0xFFFFU);
+    rx.crc_0          = (uint16_t)((uint32_t)rand() & 0xFFFFU);
+    rx.crc_1          = (uint16_t)((uint32_t)rand() & 0xFFFFU);
     fsoe_pdo_rx_wire_encode(&rx, rx_wire);
 }
 
@@ -94,15 +96,19 @@ static uint32_t fsoe_ipc_self_test_verify(const uint8_t rx_wire[FSOE_PDO_RX_BYTE
     fsoe_pdo_rx_wire_decode(rx_wire, &rx);
     fsoe_pdo_tx_wire_decode(tx_wire, &tx);
 
-    expected.fsoe_status    = 0x01U;
-    expected.safe_inputs    = rx.safe_outputs;
-    expected.connection_id  = rx.connection_id;
-    expected.fsoe_crc       = (uint16_t)(rx.fsoe_crc ^ 0xFFFFU);
+    expected.command       = 0x01U;
+    expected.safety_data1  = rx.safety_data1;
+    expected.safety_data2  = rx.safety_data2;
+    expected.connection_id = rx.connection_id;
+    expected.crc_0         = (uint16_t)(rx.crc_0 ^ 0xFFFFU);
+    expected.crc_1         = (uint16_t)(rx.crc_1 ^ 0xFFFFU);
 
-    if ((tx.fsoe_status != expected.fsoe_status) ||
-        (tx.safe_inputs != expected.safe_inputs) ||
+    if ((tx.command != expected.command) ||
+        (tx.safety_data1 != expected.safety_data1) ||
+        (tx.safety_data2 != expected.safety_data2) ||
         (tx.connection_id != expected.connection_id) ||
-        (tx.fsoe_crc != expected.fsoe_crc))
+        (tx.crc_0 != expected.crc_0) ||
+        (tx.crc_1 != expected.crc_1))
     {
         return 1U;
     }

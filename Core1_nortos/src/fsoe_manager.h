@@ -16,8 +16,8 @@ void fsoe_manager_init(void);
 /**
  * Process one FSoE request and build the response.
  *
- * \param rx  Decoded FSOE_Rx PDO from Core 0 (master outputs).
- * \param tx  Out: FSOE_Tx PDO to send back to Core 0 (master inputs).
+ * \param rx  Decoded FSoE RxPDO from Core 0 (0x160F wire, 11 bytes).
+ * \param tx  Out: FSoE TxPDO for Core 0 (0x1A0F wire, 11 bytes).
  */
 void fsoe_manager_process(const fsoe_pdo_rx_t *rx, fsoe_pdo_tx_t *tx);
 

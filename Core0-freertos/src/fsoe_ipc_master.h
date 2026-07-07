@@ -21,8 +21,8 @@
 /**
  * One FSoE cycle: master RxPDO wire → Core 1 manager → master TxPDO wire.
  *
- * \param rx_wire     FSOE_Rx PDO bytes from APPL_OutputMapping (0x1610), length FSOE_PDO_RX_BYTES.
- * \param tx_wire     Out: FSOE_Tx PDO bytes for APPL_InputMapping (0x1A10), length FSOE_PDO_TX_BYTES.
+ * \param rx_wire     FSOE RxPDO bytes from APPL_OutputMapping (0x160F), length FSOE_PDO_RX_BYTES.
+ * \param tx_wire     Out: FSOE TxPDO bytes for APPL_InputMapping (0x1A0F), length FSOE_PDO_TX_BYTES.
  * \param rtt_us_out  Optional round-trip time in µs (NULL to skip).
  * \return SystemP_SUCCESS when reply seq matches and arrived within timeout.
  */

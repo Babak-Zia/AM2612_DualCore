@@ -78,7 +78,7 @@ extern uint32_t appState;
 /*
  * PDO layout (SSC-AM2612Objects.h / ESI SM2/SM3 DefaultSize 35):
  *   0x1600 / 0x1A00 — 29 bytes (0x7000..0x7003 / 0x6000..0x6003)
- *   0x1610 / 0x1A10 —  6 bytes (0x7100 FSOE_Rx / 0x6100 FSOE_Tx)
+ *   0x160F / 0x1A0F — 11 bytes (0x70F0+0x70F1 / 0x60F0+0x60F1)
  */
 #define AM2612_PDO_IMAGE_BYTES   ETHERCAT_APP_PDO_IMAGE_BYTES
 #define AM2612_FSOE_PDO_BYTES    ETHERCAT_APP_FSOE_PDO_BYTES
@@ -99,14 +99,18 @@ static void reset_rx_od(void)
     Complex_Rx0x7003.Complex_Long = (UINT64)0;
     Complex_Rx0x7003.Complex_Float = (REAL32)0;
     Complex_Rx0x7003.Complex_Double = (REAL64)0;
-    FSOE_Rx0x7100.FsoeCommand = 0U;
-    FSOE_Rx0x7100.SafeOutputs = 0U;
-    FSOE_Rx0x7100.ConnectionId = 0U;
-    FSOE_Rx0x7100.FsoeCRC = 0U;
-    FSOE_Tx0x6100.FsoeStatus = 0U;
-    FSOE_Tx0x6100.SafeInputs = 0U;
-    FSOE_Tx0x6100.ConnectionId = 0U;
-    FSOE_Tx0x6100.FsoeCRC = 0U;
+    FSOE_Com_Rx0x70F0.Command = 0U;
+    FSOE_Com_Rx0x70F0.CRC_0 = 0U;
+    FSOE_Com_Rx0x70F0.CRC_1 = 0U;
+    FSOE_Com_Rx0x70F0.ConnectioID = 0U;
+    FSOE_Data_Rx0x70F1.Safety_Data1 = 0U;
+    FSOE_Data_Rx0x70F1.Safety_Data2 = 0U;
+    FSOE_Com_TX0x60F0.Command = 0U;
+    FSOE_Com_TX0x60F0.CRC_0 = 0U;
+    FSOE_Com_TX0x60F0.CRC_1 = 0U;
+    FSOE_Com_TX0x60F0.ConnectioID = 0U;
+    FSOE_Data_TX0x60F1.Safety_Data1 = 0U;
+    FSOE_Data_TX0x60F1.Safety_Data2 = 0U;
 }
 
 /*-----------------------------------------------------------------------------------------
@@ -439,7 +443,7 @@ void APPL_InputMapping(uint16_t *pData)
                 manage_pdo_tx(pTmpData);
                 pTmpData += AM2612_PDO_IMAGE_BYTES;
                 break;
-            case 0x1A10:
+            case 0x1A0F:
                 manage_pdo_fsoe_tx(pTmpData);
                 pTmpData += AM2612_FSOE_PDO_BYTES;
                 break;
@@ -469,7 +473,7 @@ void APPL_OutputMapping(uint16_t *pData)
                 manage_pdo_rx(pTmpData);
                 pTmpData += AM2612_PDO_IMAGE_BYTES;
                 break;
-            case 0x1610:
+            case 0x160F:
                 manage_pdo_fsoe_rx(pTmpData);
                 pTmpData += AM2612_FSOE_PDO_BYTES;
                 break;
