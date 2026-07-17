@@ -46,6 +46,7 @@
 
 #include <tiescutils.h>
 #include <sdoserv.h>
+#include <coeappl.h>
 
 /*
  * Define OD / process-data instances in this TU (SSC PROTO expands to definitions).
@@ -76,9 +77,12 @@ extern void (*pAPPL_CoeReadInd)(UINT16 Index, UINT8 Subindex, BOOL CompleteAcces
 extern uint32_t appState;
 
 /*
- * PDO layout (SSC-AM2612Objects.h / ESI SM2/SM3 DefaultSize 35):
- *   0x1600 / 0x1A00 — 29 bytes (0x7000..0x7003 / 0x6000..0x6003)
- *   0x160F / 0x1A0F — 11 bytes (0x70F0+0x70F1 / 0x60F0+0x60F1)
+ * PDO layout (SSC-AM2612Objects.h / ESI SM2/SM3 DefaultSize 42):
+ *   0x1600 / 0x1A00 — 30 bytes (0x7000..0x7003 / 0x6000..0x6003, includes Pad_Byte)
+ *   0x160F / 0x1A0F — 12 bytes FSoE module 0x71000001 (0x70F0 / 0x60F0 Word0..Word5)
+ *
+ * Note: SSC regenerates SSC-AM2612.c (sample appl + modular OD). Exclude it from the
+ * project (TIESC_APPLICATION path uses this file). Module OD registration lives below.
  */
 #define AM2612_PDO_IMAGE_BYTES   ETHERCAT_APP_PDO_IMAGE_BYTES
 #define AM2612_FSOE_PDO_BYTES    ETHERCAT_APP_FSOE_PDO_BYTES
@@ -95,22 +99,23 @@ static void reset_rx_od(void)
     Array_Byte_RX0x7001.aEntries[2] = 0;
     Single_Short_Rx0x7002 = 0;
     Complex_Rx0x7003.Complex_Byte = 0;
+    Complex_Rx0x7003.Pad_Byte = 0;
     Complex_Rx0x7003.Complex_Short = 0;
     Complex_Rx0x7003.Complex_Long = (UINT64)0;
     Complex_Rx0x7003.Complex_Float = (REAL32)0;
     Complex_Rx0x7003.Complex_Double = (REAL64)0;
-    FSOE_Com_Rx0x70F0.Command = 0U;
-    FSOE_Com_Rx0x70F0.CRC_0 = 0U;
-    FSOE_Com_Rx0x70F0.CRC_1 = 0U;
-    FSOE_Com_Rx0x70F0.ConnectioID = 0U;
-    FSOE_Data_Rx0x70F1.Safety_Data1 = 0U;
-    FSOE_Data_Rx0x70F1.Safety_Data2 = 0U;
-    FSOE_Com_TX0x60F0.Command = 0U;
-    FSOE_Com_TX0x60F0.CRC_0 = 0U;
-    FSOE_Com_TX0x60F0.CRC_1 = 0U;
-    FSOE_Com_TX0x60F0.ConnectioID = 0U;
-    FSOE_Data_TX0x60F1.Safety_Data1 = 0U;
-    FSOE_Data_TX0x60F1.Safety_Data2 = 0U;
+    Module71000001FSOE_RX_RAW0x70F0.Word0 = 0U;
+    Module71000001FSOE_RX_RAW0x70F0.Word1 = 0U;
+    Module71000001FSOE_RX_RAW0x70F0.Word2 = 0U;
+    Module71000001FSOE_RX_RAW0x70F0.Word3 = 0U;
+    Module71000001FSOE_RX_RAW0x70F0.Word4 = 0U;
+    Module71000001FSOE_RX_RAW0x70F0.Word5 = 0U;
+    Module71000001FSOE_TX_RAW0x60F0.Word0 = 0U;
+    Module71000001FSOE_TX_RAW0x60F0.Word1 = 0U;
+    Module71000001FSOE_TX_RAW0x60F0.Word2 = 0U;
+    Module71000001FSOE_TX_RAW0x60F0.Word3 = 0U;
+    Module71000001FSOE_TX_RAW0x60F0.Word4 = 0U;
+    Module71000001FSOE_TX_RAW0x60F0.Word5 = 0U;
 }
 
 /*-----------------------------------------------------------------------------------------
@@ -227,6 +232,139 @@ UINT8 yes(UINT16 index, UINT8 subindex, UINT32 dataSize, UINT16 MBXMEM * pData, 
 
     return coe_delegate_write(index, subindex, dataSize, pData, bCompleteAccess);
 }
+
+/*
+ * Module OD Write callback (SSC Module0x71000001_Objects.h). With TIESC_APPLICATION,
+ * SSC-AM2612.c is excluded — provide the symbol here.
+ */
+UINT8 Module71000001_yes(UINT16 index, UINT8 subindex, UINT32 dataSize, UINT16 MBXMEM * pData,
+                         UINT8 bCompleteAccess)
+{
+    return yes(index, subindex, dataSize, pData, bCompleteAccess);
+}
+
+/*
+ * Register FSoE module objects (0x160F/0x1A0F, 0x60F0, 0x70F0, 0x9001)
+ * from ModuleOds[] into the device OD. Uses static PROTO variables (no MDP copy).
+ */
+static UINT16 Module_UpdateObjectDictionary(void)
+{
+    TOBJECT OBJMEM *pEntry;
+    UINT16          result = 0U;
+
+    if ((ConfiguredModuleIdentList0xF030.u16SubIndex0 < 1U) ||
+        (ConfiguredModuleIdentList0xF030.FSoESafetyModule == 0U))
+    {
+        return 0U;
+    }
+
+    /* Already registered after previous PREOP→SAFEOP. */
+    if (OBJ_GetObjectHandle(0x160F) != NULL)
+    {
+        return 0U;
+    }
+
+    if ((ModuleOds[0].u32ModuleId != ConfiguredModuleIdentList0xF030.FSoESafetyModule) ||
+        (ModuleOds[0].pObjectDictionary == NULL))
+    {
+        return ALSTATUSCODE_UNSPECIFIEDERROR;
+    }
+
+    pEntry = ModuleOds[0].pObjectDictionary;
+    while (pEntry->Index != 0xFFFF)
+    {
+        result = COE_AddObjectToDic(pEntry);
+        if (result != 0U)
+        {
+            return result;
+        }
+        pEntry++;
+    }
+
+    AssignedModules[0].u32ModuleId         = ConfiguredModuleIdentList0xF030.FSoESafetyModule;
+    AssignedModules[0].pObjectDictionary   = ModuleOds[0].pObjectDictionary;
+    return 0U;
+}
+
+/* Rebuild 0x1C12 / 0x1C13 from all RxPDO / TxPDO mapping objects in the OD. */
+static UINT16 APPL_UpdateAssignObjects(void)
+{
+    UINT16                 PDOAssignEntryCnt = 0U;
+    OBJCONST TOBJECT OBJMEM *pAssignObj = OBJ_GetObjectHandle(0x1C12);
+    UINT16                 maxConfiguredSubindex;
+    OBJCONST TOBJECT OBJMEM *pObjEntry = COE_GetObjectDictionary();
+
+    if ((pAssignObj == NULL) || (pObjEntry == NULL))
+    {
+        return ALSTATUSCODE_UNSPECIFIEDERROR;
+    }
+
+    maxConfiguredSubindex =
+        (UINT16)((pAssignObj->ObjDesc.ObjFlags & OBJFLAGS_MAXSUBINDEXMASK) >> OBJFLAGS_MAXSUBINDEXSHIFT);
+
+    do
+    {
+        if ((pObjEntry->Index >= 0x1600U) && (pObjEntry->Index <= 0x17FFU))
+        {
+            if (PDOAssignEntryCnt >= maxConfiguredSubindex)
+            {
+                return ALSTATUSCODE_INVALIDOUTPUTMAPPING;
+            }
+            sRxPDOassign.aEntries[PDOAssignEntryCnt] = pObjEntry->Index;
+            PDOAssignEntryCnt++;
+        }
+
+        if (pObjEntry->Index >= 0x17FFU)
+        {
+            break;
+        }
+
+        pObjEntry = pObjEntry->pNext;
+    } while (pObjEntry != NULL);
+
+    sRxPDOassign.u16SubIndex0 = PDOAssignEntryCnt;
+    for (; PDOAssignEntryCnt < maxConfiguredSubindex; PDOAssignEntryCnt++)
+    {
+        sRxPDOassign.aEntries[PDOAssignEntryCnt] = 0U;
+    }
+
+    pAssignObj = OBJ_GetObjectHandle(0x1C13);
+    if (pAssignObj == NULL)
+    {
+        return ALSTATUSCODE_UNSPECIFIEDERROR;
+    }
+    maxConfiguredSubindex =
+        (UINT16)((pAssignObj->ObjDesc.ObjFlags & OBJFLAGS_MAXSUBINDEXMASK) >> OBJFLAGS_MAXSUBINDEXSHIFT);
+    PDOAssignEntryCnt = 0U;
+
+    while (pObjEntry != NULL)
+    {
+        if ((pObjEntry->Index >= 0x1A00U) && (pObjEntry->Index <= 0x1BFFU))
+        {
+            if (PDOAssignEntryCnt >= maxConfiguredSubindex)
+            {
+                return ALSTATUSCODE_INVALIDINPUTMAPPING;
+            }
+            sTxPDOassign.aEntries[PDOAssignEntryCnt] = pObjEntry->Index;
+            PDOAssignEntryCnt++;
+        }
+
+        if (pObjEntry->Index >= 0x1BFFU)
+        {
+            break;
+        }
+
+        pObjEntry = pObjEntry->pNext;
+    }
+
+    sTxPDOassign.u16SubIndex0 = PDOAssignEntryCnt;
+    for (; PDOAssignEntryCnt < maxConfiguredSubindex; PDOAssignEntryCnt++)
+    {
+        sTxPDOassign.aEntries[PDOAssignEntryCnt] = 0U;
+    }
+
+    return 0U;
+}
 #endif /* COE_SUPPORTED */
 /*ECATCHANGE_START(V4.42.1) ECAT2*/
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -247,6 +385,12 @@ uint16_t APPL_StartMailboxHandler(void)
 {
 #if COE_SUPPORTED
     pAPPL_CoeReadInd = tiesc_CoeReadInd;
+    /*
+     * Register FSoE module OD during INIT→PREOP so TwinCAT sees 0x160F/0x1A0F
+     * before PREOP→SAFEOP size checks (avoids SM length mismatch / 0x001E).
+     */
+    (void)Module_UpdateObjectDictionary();
+    (void)APPL_UpdateAssignObjects();
 #endif
     return ALSTATUSCODE_NOERROR;
 }
@@ -374,6 +518,21 @@ uint16_t APPL_GenerateMapping(uint16_t *pInputSize, uint16_t *pOutputSize)
     uint16_t InputSize = 0;
     uint16_t OutputSize = 0;
 
+#if COE_SUPPORTED
+    /* Modular FSoE OD (Module 0x71000001) + rebuild SM PDO assign lists. */
+    result = Module_UpdateObjectDictionary();
+    if (result != ALSTATUSCODE_NOERROR)
+    {
+        return ALSTATUSCODE_UNSPECIFIEDERROR;
+    }
+
+    result = APPL_UpdateAssignObjects();
+    if (result != ALSTATUSCODE_NOERROR)
+    {
+        return result;
+    }
+#endif
+
     /*Scan object 0x1C12 RXPDO assign*/
     for(PDOAssignEntryCnt = 0; PDOAssignEntryCnt < sRxPDOassign.u16SubIndex0;
             PDOAssignEntryCnt++)
@@ -386,37 +545,71 @@ uint16_t APPL_GenerateMapping(uint16_t *pInputSize, uint16_t *pOutputSize)
 
             for(PDOEntryCnt = 0; PDOEntryCnt < PDOSubindex0; PDOEntryCnt++)
             {
-                pPDOEntry = (uint32_t *)((uint8_t *)pPDO->pVarPtr + (OBJ_GetEntryOffset((
-                                             PDOEntryCnt + 1), pPDO) >> 3));     //goto PDO entry
-                // we increment the expected output size depending on the mapped Entry
+                /* Same address calc as SSC sample (UINT16* + bitOffset/16). */
+                pPDOEntry = (uint32_t *)(((uint16_t *)pPDO->pVarPtr) +
+                                        (OBJ_GetEntryOffset((UINT8)(PDOEntryCnt + 1), pPDO) >> 4));
                 OutputSize += (uint16_t)((*pPDOEntry) & 0xFF);
             }
+        }
+        else
+        {
+            OutputSize = 0;
+            result = ALSTATUSCODE_INVALIDOUTPUTMAPPING;
+            break;
         }
     }
 
     OutputSize = (OutputSize + 7) >> 3;
 
     /*Scan Object 0x1C13 TXPDO assign*/
-    for(PDOAssignEntryCnt = 0; PDOAssignEntryCnt < sTxPDOassign.u16SubIndex0;
-            PDOAssignEntryCnt++)
+    if (result == 0)
     {
-        pPDO = OBJ_GetObjectHandle(sTxPDOassign.aEntries[PDOAssignEntryCnt]);
-
-        if(pPDO != NULL)
+        for(PDOAssignEntryCnt = 0; PDOAssignEntryCnt < sTxPDOassign.u16SubIndex0;
+                PDOAssignEntryCnt++)
         {
-            PDOSubindex0 = *((uint16_t *)pPDO->pVarPtr);
+            pPDO = OBJ_GetObjectHandle(sTxPDOassign.aEntries[PDOAssignEntryCnt]);
 
-            for(PDOEntryCnt = 0; PDOEntryCnt < PDOSubindex0; PDOEntryCnt++)
+            if(pPDO != NULL)
             {
-                pPDOEntry = (uint32_t *)((uint8_t *)pPDO->pVarPtr + (OBJ_GetEntryOffset((
-                                             PDOEntryCnt + 1), pPDO) >> 3));     //goto PDO entry
-                // we increment the expected output size depending on the mapped Entry
-                InputSize += (uint16_t)((*pPDOEntry) & 0xFF);
+                PDOSubindex0 = *((uint16_t *)pPDO->pVarPtr);
+
+                for(PDOEntryCnt = 0; PDOEntryCnt < PDOSubindex0; PDOEntryCnt++)
+                {
+                    pPDOEntry = (uint32_t *)(((uint16_t *)pPDO->pVarPtr) +
+                                            (OBJ_GetEntryOffset((UINT8)(PDOEntryCnt + 1), pPDO) >> 4));
+                    InputSize += (uint16_t)((*pPDOEntry) & 0xFF);
+                }
+            }
+            else
+            {
+                InputSize = 0;
+                result = ALSTATUSCODE_INVALIDINPUTMAPPING;
+                break;
             }
         }
     }
 
     InputSize = (InputSize + 7) >> 3;
+
+#if COE_SUPPORTED
+    /*
+     * With FSoE module configured, total PD must be 30 + 12 = 42.
+     * A smaller size usually means 0x160F/0x1A0F were not in the OD/assign —
+     * TwinCAT then programs SM length 42 from ESI → AL status 0x001E.
+     */
+    if ((result == 0) &&
+        (ConfiguredModuleIdentList0xF030.u16SubIndex0 >= 1U) &&
+        (ConfiguredModuleIdentList0xF030.FSoESafetyModule == 0x71000001UL))
+    {
+        if ((InputSize != ETHERCAT_APP_PD_INPUT_BYTES) ||
+            (OutputSize != ETHERCAT_APP_PD_OUTPUT_BYTES) ||
+            (OBJ_GetObjectHandle(0x160F) == NULL) ||
+            (OBJ_GetObjectHandle(0x1A0F) == NULL))
+        {
+            return ALSTATUSCODE_INVALIDINPUTMAPPING;
+        }
+    }
+#endif
 
     *pInputSize = InputSize;
     *pOutputSize = OutputSize;
@@ -494,6 +687,7 @@ void APPL_Application(void)
     Array_Byte_TX0x6001.aEntries[2] = Array_Byte_RX0x7001.aEntries[2];
     Single_Short_Tx0x6002 = Single_Short_Rx0x7002;
     Complex_Tx0x6003.Complex_Byte = Complex_Rx0x7003.Complex_Byte;
+    Complex_Tx0x6003.Pad_Byte = Complex_Rx0x7003.Pad_Byte;
     Complex_Tx0x6003.Complex_Short = Complex_Rx0x7003.Complex_Short;
     Complex_Tx0x6003.Complex_Long = Complex_Rx0x7003.Complex_Long;
     Complex_Tx0x6003.Complex_Float = Complex_Rx0x7003.Complex_Float;

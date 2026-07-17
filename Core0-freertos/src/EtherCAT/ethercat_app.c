@@ -63,6 +63,7 @@ typedef struct
     INT8 u7001_arr[3];
     INT16 u7002_short;
     INT8 u7003_complex_byte;
+    INT8 u7003_pad_byte;
     INT16 u7003_complex_short;
     UINT64 u7003_complex_long;
     REAL32 u7003_complex_float;
@@ -86,6 +87,7 @@ static void ethercat_app_decode_pdo_rx(const uint8_t *pdo_rx, EthercatApp_PdoRxD
     (void)memcpy(&out->u7002_short, &s[o], sizeof(out->u7002_short));
     o = (uint16_t)(o + (uint16_t)sizeof(out->u7002_short));
     out->u7003_complex_byte = (INT8)s[o++];
+    out->u7003_pad_byte = (INT8)s[o++];
     (void)memcpy(&out->u7003_complex_short, &s[o], sizeof(out->u7003_complex_short));
     o = (uint16_t)(o + (uint16_t)sizeof(out->u7003_complex_short));
     (void)memcpy(&out->u7003_complex_long, &s[o], sizeof(out->u7003_complex_long));
@@ -112,6 +114,7 @@ void manage_pdo_rx(uint8_t *pdo_rx)
     Single_Short_Rx0x7002 = dec.u7002_short;
     /* Debug: 0x7002 → 0x6002 so the master TxPDO reflects the last RxPDO short (packet dump / tracing). */
     Single_Short_Tx0x6002 = dec.u7002_short;
+    Complex_Rx0x7003.Pad_Byte = dec.u7003_pad_byte;
  }
 
 void manage_pdo_tx(uint8_t *pdo_tx)
@@ -126,6 +129,7 @@ void manage_pdo_tx(uint8_t *pdo_tx)
     (void)memcpy(&d[o], &Single_Short_Tx0x6002, sizeof(Single_Short_Tx0x6002));
     o = (uint16_t)(o + (uint16_t)sizeof(Single_Short_Tx0x6002));
     d[o++] = (uint8_t)Complex_Tx0x6003.Complex_Byte;
+    d[o++] = (uint8_t)Complex_Tx0x6003.Pad_Byte;
     (void)memcpy(&d[o], &Complex_Tx0x6003.Complex_Short, sizeof(Complex_Tx0x6003.Complex_Short));
     o = (uint16_t)(o + (uint16_t)sizeof(Complex_Tx0x6003.Complex_Short));
     (void)memcpy(&d[o], &Complex_Tx0x6003.Complex_Long, sizeof(Complex_Tx0x6003.Complex_Long));
@@ -140,12 +144,12 @@ static void fsoe_od_apply_rx_wire(const uint8_t wire[FSOE_PDO_RX_BYTES])
     fsoe_pdo_rx_t rx;
 
     fsoe_pdo_rx_wire_decode(wire, &rx);
-    FSOE_Com_Rx0x70F0.Command     = rx.command;
-    FSOE_Com_Rx0x70F0.CRC_0       = rx.crc_0;
-    FSOE_Com_Rx0x70F0.CRC_1       = rx.crc_1;
-    FSOE_Com_Rx0x70F0.ConnectioID  = rx.connection_id;
-    FSOE_Data_Rx0x70F1.Safety_Data1 = rx.safety_data1;
-    FSOE_Data_Rx0x70F1.Safety_Data2 = rx.safety_data2;
+    Module71000001FSOE_RX_RAW0x70F0.Word0 = rx.word0;
+    Module71000001FSOE_RX_RAW0x70F0.Word1 = rx.word1;
+    Module71000001FSOE_RX_RAW0x70F0.Word2 = rx.word2;
+    Module71000001FSOE_RX_RAW0x70F0.Word3 = rx.word3;
+    Module71000001FSOE_RX_RAW0x70F0.Word4 = rx.word4;
+    Module71000001FSOE_RX_RAW0x70F0.Word5 = rx.word5;
 }
 
 static void fsoe_od_apply_tx_wire(const uint8_t wire[FSOE_PDO_TX_BYTES])
@@ -153,12 +157,12 @@ static void fsoe_od_apply_tx_wire(const uint8_t wire[FSOE_PDO_TX_BYTES])
     fsoe_pdo_tx_t tx;
 
     fsoe_pdo_tx_wire_decode(wire, &tx);
-    FSOE_Com_TX0x60F0.Command     = tx.command;
-    FSOE_Com_TX0x60F0.CRC_0       = tx.crc_0;
-    FSOE_Com_TX0x60F0.CRC_1       = tx.crc_1;
-    FSOE_Com_TX0x60F0.ConnectioID  = tx.connection_id;
-    FSOE_Data_TX0x60F1.Safety_Data1 = tx.safety_data1;
-    FSOE_Data_TX0x60F1.Safety_Data2 = tx.safety_data2;
+    Module71000001FSOE_TX_RAW0x60F0.Word0 = tx.word0;
+    Module71000001FSOE_TX_RAW0x60F0.Word1 = tx.word1;
+    Module71000001FSOE_TX_RAW0x60F0.Word2 = tx.word2;
+    Module71000001FSOE_TX_RAW0x60F0.Word3 = tx.word3;
+    Module71000001FSOE_TX_RAW0x60F0.Word4 = tx.word4;
+    Module71000001FSOE_TX_RAW0x60F0.Word5 = tx.word5;
 }
 
 void manage_pdo_fsoe_rx(uint8_t *pdo_rx)
@@ -169,7 +173,7 @@ void manage_pdo_fsoe_rx(uint8_t *pdo_rx)
 
     /*
      * Master FSOE RxPDO (0x160F) → Core 1 manager → FSOE TxPDO for master (0x1A0F).
-     * CoE 0x70F0/0x70F1 and 0x60F0/0x60F1 updated for visibility.
+     * CoE 0x70F0 / 0x60F0 (FSOE_*_RAW) updated for visibility.
      *
      * Complex_Rx0x7003.Complex_Long — last Core0↔Core1 FSoE IPC round-trip (µs); mirrored
      * to Complex_Tx0x6003 in APPL_Application for master scope on 0x1A00.
@@ -191,12 +195,12 @@ void manage_pdo_fsoe_tx(uint8_t *pdo_tx)
     fsoe_pdo_tx_t tx;
     uint8_t       wire[FSOE_PDO_TX_BYTES];
 
-    tx.command        = FSOE_Com_TX0x60F0.Command;
-    tx.crc_0          = FSOE_Com_TX0x60F0.CRC_0;
-    tx.crc_1          = FSOE_Com_TX0x60F0.CRC_1;
-    tx.connection_id  = FSOE_Com_TX0x60F0.ConnectioID;
-    tx.safety_data1   = FSOE_Data_TX0x60F1.Safety_Data1;
-    tx.safety_data2   = FSOE_Data_TX0x60F1.Safety_Data2;
+    tx.word0 = Module71000001FSOE_TX_RAW0x60F0.Word0;
+    tx.word1 = Module71000001FSOE_TX_RAW0x60F0.Word1;
+    tx.word2 = Module71000001FSOE_TX_RAW0x60F0.Word2;
+    tx.word3 = Module71000001FSOE_TX_RAW0x60F0.Word3;
+    tx.word4 = Module71000001FSOE_TX_RAW0x60F0.Word4;
+    tx.word5 = Module71000001FSOE_TX_RAW0x60F0.Word5;
 
     fsoe_pdo_tx_wire_encode(&tx, wire);
     (void)memcpy(pdo_tx, wire, FSOE_PDO_TX_BYTES);

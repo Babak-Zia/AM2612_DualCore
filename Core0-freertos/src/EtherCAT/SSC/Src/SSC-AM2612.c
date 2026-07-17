@@ -54,6 +54,255 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////
 /**
+\param    u32ModuleId  Module ident of the request module
+
+\return   Pointer to the module object dictionary
+
+\brief   This function gets the module default object dictionary 
+		  (not the module specific dictionary which is mapped to the device object dictionary)
+*////////////////////////////////////////////////////////////////////////////////////////
+TOBJECT OBJMEM* Module_GetObjectDictionary(UINT32 u32ModuleId)
+{
+    UINT16 u16Counter = 0;
+    UINT16 u16NumModules = SIZEOF(ModuleOds) / SIZEOF(TMODULEODREF);
+
+    for (u16Counter = 0; u16Counter < u16NumModules; u16Counter++)
+    {
+        if (ModuleOds[u16Counter].u32ModuleId == u32ModuleId)
+        {
+            return ModuleOds[u16Counter].pObjectDictionary;
+        }
+    }
+
+    return NULL;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/**
+\param    u32ModuleId  Module ident of the request module
+\return   number of objects
+
+\brief   This functions gets the number of objects defined by the module
+*////////////////////////////////////////////////////////////////////////////////////////
+UINT16 Module_GetObjectCount(UINT32 u32ModuleId)
+{
+    TOBJECT OBJMEM* pObject;
+    UINT16 u16Counter = 0;
+
+    pObject = Module_GetObjectDictionary(u32ModuleId);
+    if (pObject != NULL)
+    {
+        while (pObject->Index != 0xFFFF)
+        {
+            u16Counter++;
+            pObject++;
+        }
+    }
+
+    return u16Counter;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+/**
+\return   0 if all module objects are added to the device object dictionary
+
+\brief   This functions add/remove the module related objects to/from the device object dictionary based on the configured module ident list (0xF030)
+*////////////////////////////////////////////////////////////////////////////////////////
+UINT16 Module_UpdateObjectDictionary()
+{
+    TOBJECT OBJMEM* pModuleObjEntry = NULL;
+    UINT16 u16Counter = 0;
+    UINT16 IndexIncrement = 0;
+    UINT16 result = 0;
+
+    for (u16Counter = 0; u16Counter < 1; u16Counter++)
+    {
+        UINT32 u32ModuleId = ConfiguredModuleIdentList0xF030.aEntries[u16Counter];
+
+        /*clear module ident if the loop is out of the configured range*/
+        if (u16Counter >= ConfiguredModuleIdentList0xF030.u16SubIndex0)
+            u32ModuleId = 0;
+
+        if (u32ModuleId != AssignedModules[u16Counter].u32ModuleId)
+        {
+            /*a new module is assigned to the current slot*/
+            if (AssignedModules[u16Counter].u32ModuleId != 0)
+            {
+                /*Clear the assigned module objects*/
+                pModuleObjEntry = AssignedModules[u16Counter].pObjectDictionary;
+                while (pModuleObjEntry->Index != 0xFFFF)
+                {
+                    COE_RemoveDicEntry(pModuleObjEntry->Index);
+
+                    /*free previously allocated memory*/
+                    if (pModuleObjEntry->pVarPtr != NULL)
+                    {
+                        FREEMEM(pModuleObjEntry->pVarPtr);
+                        pModuleObjEntry->pVarPtr = NULL;
+                    }
+                    pModuleObjEntry++;
+                }//loop over the current assigned module OD
+
+                FREEMEM(AssignedModules[u16Counter].pObjectDictionary);
+            }
+
+            AssignedModules[u16Counter].u32ModuleId = u32ModuleId;
+            AssignedModules[u16Counter].pObjectDictionary = NULL;
+
+            if (u32ModuleId != 0)
+            {
+                UINT16 u16NumObjects = 0;
+                UINT16 u16OdSize = 0;
+                u16NumObjects = Module_GetObjectCount(u32ModuleId);
+
+                /*add 0xFFFF "object"*/
+                u16OdSize = (SIZEOF(TOBJECT) * (u16NumObjects + 1));
+
+                AssignedModules[u16Counter].pObjectDictionary = ALLOCMEM(u16OdSize);
+
+                if (AssignedModules[u16Counter].pObjectDictionary == NULL)
+                {
+                    /*failed to allocate memory for module OD*/
+                    AssignedModules[u16Counter].u32ModuleId = 0;
+
+                    return 1;
+                }
+
+                pModuleObjEntry = Module_GetObjectDictionary(u32ModuleId);
+                if (pModuleObjEntry == NULL)
+                {
+                    /*Module object dictionary not found*/
+                    AssignedModules[u16Counter].u32ModuleId = 0;
+                    FREEMEM(AssignedModules[u16Counter].pObjectDictionary);
+                    AssignedModules[u16Counter].pObjectDictionary = NULL;
+
+                    return 1;
+                }
+
+                MEMCPY(AssignedModules[u16Counter].pObjectDictionary, pModuleObjEntry, u16OdSize);
+
+                pModuleObjEntry = AssignedModules[u16Counter].pObjectDictionary;
+                /*loop over all module object dictionary entries and add to device object dictionary*/
+                while (pModuleObjEntry->Index != 0xFFFF)
+                {
+                    /*Index increment is greater 0, create a new object dictionary entry*/
+                    pModuleObjEntry->pPrev = NULL;
+                    pModuleObjEntry->pNext = NULL;
+
+                    if ((pModuleObjEntry->Index >= 0x1600 && pModuleObjEntry->Index <= 0x17FF)
+                        || (pModuleObjEntry->Index >= 0x1A00 && pModuleObjEntry->Index <= 0x1BFF))
+                    {
+                        pModuleObjEntry->Index = pModuleObjEntry->Index + (u16Counter * MODULE_PDO_OBJECT_INCREMENT);
+                    }
+                    else if (pModuleObjEntry->Index >= 0x2000 && pModuleObjEntry->Index <= 0xBFFF)
+                    {
+                        pModuleObjEntry->Index = pModuleObjEntry->Index + (u16Counter * MODULE_OBJECT_INCREMENT);
+                    }
+
+
+                    /*allocate object data memory*/
+                    if (pModuleObjEntry->pVarPtr != NULL)
+                    {
+                        void MBXMEM* pData = pModuleObjEntry->pVarPtr;
+                        /*Get size of required object memory (Implicit compiler alignment is taken into account if OBJ_DWORD_ALIGN/OBJ_WORD_ALIGN are set)*/
+                        UINT8 maxSubindex = (pModuleObjEntry->ObjDesc.ObjFlags & OBJFLAGS_MAXSUBINDEXMASK) >> OBJFLAGS_MAXSUBINDEXSHIFT;
+                        OBJCONST TSDOINFOENTRYDESC OBJMEM* pEntry; 
+                        UINT32 u32objsize = OBJ_GetEntryOffset(maxSubindex, pModuleObjEntry);
+                        pEntry = OBJ_GetEntryDesc(pModuleObjEntry, maxSubindex);
+                        u32objsize = BIT2BYTE((u32objsize + pEntry->BitLength)); 
+
+                        pModuleObjEntry->pVarPtr = ALLOCMEM(u32objsize);
+
+                        if (pModuleObjEntry->pVarPtr == NULL)
+                        {
+                            return 1;
+                        }
+
+                        /*copy initial value to new object*/
+                        MEMCPY(pModuleObjEntry->pVarPtr, pData, u32objsize);
+
+                        if ((pModuleObjEntry->Index >= 0x1600 && pModuleObjEntry->Index <= 0x17FF)
+                            || (pModuleObjEntry->Index >= 0x1A00 && pModuleObjEntry->Index <= 0x1BFF))
+                        {
+                            UINT16 maxConfiguredSubindex = (pModuleObjEntry->ObjDesc.ObjFlags & OBJFLAGS_MAXSUBINDEXMASK) >> OBJFLAGS_MAXSUBINDEXSHIFT; //required to check if value for Subindex0 is valid
+                            UINT32* pData = (UINT32*)(((UINT16*)pModuleObjEntry->pVarPtr) + (OBJ_GetEntryOffset(1, pModuleObjEntry) >> 4));/*Get PDO entry*/
+                            UINT16 u16Idx;
+
+                            while (maxConfiguredSubindex > 0)
+                            {
+                                u16Idx = (UINT16)((*pData) >> 16);
+
+                                if (u16Idx >= 0x2000 && u16Idx <= 0xBFFF)
+                                {
+                                    u16Idx += (u16Counter * MODULE_OBJECT_INCREMENT);
+                                    *pData = (*pData & 0x0000FFFF) | (((UINT32)u16Idx) << 16);
+                                }
+                                pData++;
+                                maxConfiguredSubindex--;
+                            }
+                        }
+                    }
+
+                    if (pModuleObjEntry->Index <= 0xFFF)
+                    {
+                        /*skip data type/unit or enum definitions if they are already defined in the OD*/
+                        OBJCONST TOBJECT OBJMEM *pObj = OBJ_GetObjectHandle(pModuleObjEntry->Index);
+                        if (pObj == NULL)
+                        {
+                            result = COE_AddObjectToDic(pModuleObjEntry);
+
+                            if (result != 0)
+                            {
+                                return result;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        result = COE_AddObjectToDic(pModuleObjEntry);
+
+                        if (result != 0)
+                        {
+                            return result;
+                        }
+                    }
+
+                    if (result != 0)
+                    {
+                        return 1;
+                    }
+
+                    pModuleObjEntry++;
+                } 
+            }
+        }
+        else if(AssignedModules[u16Counter].pObjectDictionary != NULL)
+        {
+            /*verify that the enum definitions are available*/
+            OBJCONST TOBJECT OBJMEM* pObj;
+            pModuleObjEntry = AssignedModules[u16Counter].pObjectDictionary;
+            /*loop over all module object dictionary entries and add to device object dictionary*/
+            while ((pModuleObjEntry->Index != 0xFFFF) && (pModuleObjEntry->Index <= 0xFFF))
+            {
+                pObj = OBJ_GetObjectHandle(pModuleObjEntry->Index);
+                if (pObj == NULL)
+                {
+                    result = COE_AddObjectToDic(pModuleObjEntry);
+
+                    if (result != 0)
+                    {
+                        return result;
+                    }
+                }
+                pModuleObjEntry++;
+            }
+        }
+    }
+
+    return 0;
+}
+/////////////////////////////////////////////////////////////////////////////////////////
+/**
  \brief    The function is called when an error state was acknowledged by the master
 
 *////////////////////////////////////////////////////////////////////////////////////////
@@ -169,6 +418,89 @@ UINT16 APPL_StopOutputHandler(void)
     return ALSTATUSCODE_NOERROR;
 }
 
+#if COE_SUPPORTED
+/////////////////////////////////////////////////////////////////////////////////////////
+/**
+ \return     0, invalid mapping error
+
+ \brief    Assign all PDO mapping to the related SM assign objects
+
+*////////////////////////////////////////////////////////////////////////////////////////
+UINT16 APPL_UpdateAssignObjects()
+{
+    UINT16 PDOAssignEntryCnt = 0;
+    OBJCONST TOBJECT OBJMEM* pAssignObj = OBJ_GetObjectHandle(0x1C12);
+    UINT16 maxConfiguredSubindex = (pAssignObj->ObjDesc.ObjFlags & OBJFLAGS_MAXSUBINDEXMASK) >> OBJFLAGS_MAXSUBINDEXSHIFT;
+    OBJCONST TOBJECT OBJMEM* pObjEntry = COE_GetObjectDictionary();
+
+    /*Process 0x1C12*/
+    do
+    {
+        if (pObjEntry->Index >= 0x1600 && pObjEntry->Index <= 0x17FF)
+        {
+            if (PDOAssignEntryCnt >= maxConfiguredSubindex)
+            {
+                return ALSTATUSCODE_INVALIDOUTPUTMAPPING;;
+            }
+            sRxPDOassign.aEntries[PDOAssignEntryCnt] = pObjEntry->Index;
+            PDOAssignEntryCnt++;
+        }
+
+        /*abort loop if max index is reached (objects are sorted in ascending order)*/
+        if (pObjEntry->Index >= 0x17FF)
+        {
+            break;
+        }
+
+        pObjEntry = pObjEntry->pNext;
+    } while (pObjEntry != NULL);
+
+    sRxPDOassign.u16SubIndex0 = PDOAssignEntryCnt;
+    
+    /*clear remaining entries*/
+    for (; PDOAssignEntryCnt < maxConfiguredSubindex; PDOAssignEntryCnt++)
+    {
+        sRxPDOassign.aEntries[PDOAssignEntryCnt] = 0;
+    }
+
+
+    /*Process 0x1C13*/
+    pAssignObj = OBJ_GetObjectHandle(0x1C13);
+    maxConfiguredSubindex = (pAssignObj->ObjDesc.ObjFlags & OBJFLAGS_MAXSUBINDEXMASK) >> OBJFLAGS_MAXSUBINDEXSHIFT;
+    PDOAssignEntryCnt = 0;
+
+    while (pObjEntry != NULL)
+    {
+        if (pObjEntry->Index >= 0x1A00 && pObjEntry->Index <= 0x1BFF)
+        {
+            if (PDOAssignEntryCnt >= maxConfiguredSubindex)
+            {
+                return ALSTATUSCODE_INVALIDINPUTMAPPING;;
+            }
+            sTxPDOassign.aEntries[PDOAssignEntryCnt] = pObjEntry->Index;
+            PDOAssignEntryCnt++;
+        }
+
+        /*abort loop if max index is reached (objects are sorted in ascending order)*/
+        if (pObjEntry->Index >= 0x1BFF)
+        {
+            break;
+        }
+
+        pObjEntry = pObjEntry->pNext;
+    } 
+
+    sTxPDOassign.u16SubIndex0 = PDOAssignEntryCnt;
+
+    /*clear remaining entries*/
+    for (; PDOAssignEntryCnt < maxConfiguredSubindex; PDOAssignEntryCnt++)
+    {
+        sTxPDOassign.aEntries[PDOAssignEntryCnt] = 0;
+    }
+
+    return 0;
+}
+#endif // #if COE_SUPPORTED
 /////////////////////////////////////////////////////////////////////////////////////////
 /**
 \return     0(ALSTATUSCODE_NOERROR), NOERROR_INWORK
@@ -191,6 +523,18 @@ UINT16 APPL_GenerateMapping(UINT16 *pInputSize,UINT16 *pOutputSize)
     UINT32 *pPDOEntry = NULL;
     UINT16 PDOEntryCnt = 0;
    
+	result = Module_UpdateObjectDictionary();
+    if (result != ALSTATUSCODE_NOERROR)
+    {
+        return ALSTATUSCODE_UNSPECIFIEDERROR;
+    }
+
+    result = APPL_UpdateAssignObjects();
+    if (result != ALSTATUSCODE_NOERROR)
+    {
+        return result;
+    }
+
 #if MAX_PD_OUTPUT_SIZE > 0
     /*Scan object 0x1C12 RXPDO assign*/
     for(PDOAssignEntryCnt = 0; PDOAssignEntryCnt < sRxPDOassign.u16SubIndex0; PDOAssignEntryCnt++)
@@ -325,28 +669,6 @@ UINT16 APPL_GetDeviceID()
 }
 #endif
 
-
-
-/////////////////////////////////////////////////////////////////////////////////////////
-/**
-\param     index               index of the requested object.
-\param     subindex            subindex of the requested object.
-\param     objSize             size of the requested object data, calculated with OBJ_GetObjectLength
-\param     pData               Pointer to the buffer where the data can be copied to
-\param     bCompleteAccess     Indicates if a complete read of all subindices of the
-                               object shall be done or not
-
- \return    result of the read operation (0 (success) or an abort code (ABORTIDX_.... defined in
-            sdosrv.h))
- *////////////////////////////////////////////////////////////////////////////////////////
-UINT8 yes(UINT16 index, UINT8 subindex, UINT32 dataSize, UINT16 MBXMEM * pData, UINT8 bCompleteAccess) {
-#if _WIN32
-#pragma message ("Warning: Implement CoE read callback")
-#else
- #warning "Implement CoE read callback"
-#endif
- return 0;
-}
 #if USE_DEFAULT_MAIN
 /////////////////////////////////////////////////////////////////////////////////////////
 /**
@@ -380,6 +702,8 @@ void main(void)
     HW_Init();
 #endif
     MainInit();
+
+    Module_UpdateObjectDictionary();
 
     bRunApplication = TRUE;
     do

@@ -14,14 +14,14 @@ void fsoe_manager_init(void)
 void fsoe_manager_process(const fsoe_pdo_rx_t *rx, fsoe_pdo_tx_t *tx)
 {
     /*
-     * TODO: call the real FSoE slave stack. Stub: loop back safe data and placeholder CRC.
+     * TODO: call the real FSoE slave stack. Stub: acknowledge + loop back payload words.
      */
     (void)memset(tx, 0, sizeof(*tx));
 
-    tx->command       = 0x01U;
-    tx->safety_data1  = rx->safety_data1;
-    tx->safety_data2  = rx->safety_data2;
-    tx->connection_id = rx->connection_id;
-    tx->crc_0         = 1234;//(uint16_t)(rx->crc_0 ^ 0x1234U);
-    tx->crc_1         = 5678;//(uint16_t)(rx->crc_1 ^ 0x5678U);
+    tx->word0 = 0x0001U;
+    tx->word1 = (uint16_t)(rx->word1 ^ 0xFFFFU);
+    tx->word2 = (uint16_t)(rx->word2 ^ 0xFFFFU);
+    tx->word3 = rx->word3;
+    tx->word4 = rx->word4;
+    tx->word5 = rx->word5;
 }

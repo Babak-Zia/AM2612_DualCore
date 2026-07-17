@@ -1,0 +1,45 @@
+project:
+  name: AM2612 ESI Patcher
+  configuration_version: 2.0-dpram-and-twinsafe-detection
+output:
+  suffix: _patched
+validation:
+  require_text: SSC-AM2612
+  fail_if_patch_not_applicable: true
+patches:
+- id: PATCH-001
+  name: Correct ESC DPRAM size
+  enabled: true
+  handler: replace_exact_text
+  parameters:
+    old: <DpramSize>60416</DpramSize>
+    new: <DpramSize>28672</DpramSize>
+    occurrence: 1
+- id: PATCH-002
+  name: Mark FSoE module as Functional-Safety
+  enabled: true
+  handler: replace_exact_text
+  parameters:
+    old: "<Type ModuleIdent=\"#x71000001\">FSoE_Module</Type>\n\t\t\t\t<Name>FSoE_Module</Name>"
+    new: "<Type ModuleClass=\"195\" ModuleIdent=\"#x71000001\" SRA_ParameterSupported=\"\
+      0\">Functional-Safety</Type>\n\t\t\t\t<Name>Functional-Safety FSoE-Modul</Name>"
+    occurrence: 1
+- id: PATCH-003
+  name: Add TwinSAFE safety parameter mapping
+  enabled: true
+  handler: replace_exact_text
+  parameters:
+    old: "\t\t\t\t</TxPdo>\n\t\t\t\t<Profile>"
+    new: "\t\t\t\t</TxPdo>\n\t\t\t\t<SafetyParaMapping SafetyConnNumber=\"1\">\n\t\
+      \t\t\t\t<Index>#x1E00</Index>\n\t\t\t\t\t<Name>SafetyParameterSet</Name>\n\t\
+      \t\t\t\t<Entry>\n\t\t\t\t\t\t<Index>#x9001</Index>\n\t\t\t\t\t\t<SubIndex>7</SubIndex>\n\
+      \t\t\t\t\t\t<BitLen>16</BitLen>\n\t\t\t\t\t\t<Name>Communication Parameter Length</Name>\n\
+      \t\t\t\t\t\t<DataType>UINT</DataType>\n\t\t\t\t\t</Entry>\n\t\t\t\t\t<Entry>\n\
+      \t\t\t\t\t\t<Index>#x9001</Index>\n\t\t\t\t\t\t<SubIndex>4</SubIndex>\n\t\t\t\
+      \t\t\t<BitLen>16</BitLen>\n\t\t\t\t\t\t<Name>Watchdog Time</Name>\n\t\t\t\t\t\
+      \t<DataType>UINT</DataType>\n\t\t\t\t\t</Entry>\n\t\t\t\t\t<Entry>\n\t\t\t\t\
+      \t\t<Index>#x9001</Index>\n\t\t\t\t\t\t<SubIndex>8</SubIndex>\n\t\t\t\t\t\t\
+      <BitLen>16</BitLen>\n\t\t\t\t\t\t<Name>Application Parameter Length</Name>\n\
+      \t\t\t\t\t\t<DataType>UINT</DataType>\n\t\t\t\t\t</Entry>\n\t\t\t\t</SafetyParaMapping>\n\
+      \t\t\t\t<Profile>"
+    occurrence: 1

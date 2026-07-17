@@ -1,0 +1,54 @@
+--- SSC-AM2612.xml
++++ SSC-AM2612_patched.xml
+@@ -33,7 +33,7 @@
+ 						</Timeout>
+ 					</Mailbox>
+ 					<EtherCATController>
+-						<DpramSize>60416</DpramSize>
++						<DpramSize>28672</DpramSize>
+ 						<SmCount>8</SmCount>
+ 						<FmmuCount>8</FmmuCount>
+ 					</EtherCATController>
+@@ -2006,8 +2006,8 @@
+ 		</Devices>
+ 		<Modules>
+ 			<Module>
+-				<Type ModuleIdent="#x71000001">FSoE_Module</Type>
+-				<Name>FSoE_Module</Name>
++				<Type ModuleClass="195" ModuleIdent="#x71000001" SRA_ParameterSupported="0">Functional-Safety</Type>
++				<Name>Functional-Safety FSoE-Modul</Name>
+ 				<RxPdo Fixed="true" Mandatory="true" Sm="2">
+ 					<Index DependOnSlot="true">#x160F</Index>
+ 					<Name>FSOE_RX_RAW process data mapping</Name>
+@@ -2100,6 +2100,31 @@
+ 						<DataType>UINT</DataType>
+ 					</Entry>
+ 				</TxPdo>
++				<SafetyParaMapping SafetyConnNumber="1">
++					<Index>#x1E00</Index>
++					<Name>SafetyParameterSet</Name>
++					<Entry>
++						<Index>#x9001</Index>
++						<SubIndex>7</SubIndex>
++						<BitLen>16</BitLen>
++						<Name>Communication Parameter Length</Name>
++						<DataType>UINT</DataType>
++					</Entry>
++					<Entry>
++						<Index>#x9001</Index>
++						<SubIndex>4</SubIndex>
++						<BitLen>16</BitLen>
++						<Name>Watchdog Time</Name>
++						<DataType>UINT</DataType>
++					</Entry>
++					<Entry>
++						<Index>#x9001</Index>
++						<SubIndex>8</SubIndex>
++						<BitLen>16</BitLen>
++						<Name>Application Parameter Length</Name>
++						<DataType>UINT</DataType>
++					</Entry>
++				</SafetyParaMapping>
+ 				<Profile>
+ 					<ProfileNo>5001</ProfileNo>
+ 					<AddInfo>195</AddInfo>

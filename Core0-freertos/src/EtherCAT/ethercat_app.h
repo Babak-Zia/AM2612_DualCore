@@ -41,13 +41,13 @@
 extern "C" {
 #endif
 
-/** PDO byte length for 0x1600 / 0x1A00 (0x7000..0x7003 / 0x6000..0x6003), 232 bits. */
-#define ETHERCAT_APP_PDO_IMAGE_BYTES      (29U)
+/** PDO byte length for 0x1600 / 0x1A00 (0x7000..0x7003 / 0x6000..0x6003), 240 bits. */
+#define ETHERCAT_APP_PDO_IMAGE_BYTES      (30U)
 
 /** PDO byte length for 0x160F / 0x1A0F (must match FSOE_PDO_RX_BYTES / FSOE_PDO_TX_BYTES). */
 #define ETHERCAT_APP_FSOE_PDO_BYTES       FSOE_PDO_RX_BYTES
 
-/** Total RxPDO (SM2) / TxPDO (SM3) process data per ESI (29 + 11 = 40). */
+/** Total RxPDO (SM2) / TxPDO (SM3) process data per ESI (30 + 12 = 42). */
 #define ETHERCAT_APP_PD_OUTPUT_BYTES      (ETHERCAT_APP_PDO_IMAGE_BYTES + ETHERCAT_APP_FSOE_PDO_BYTES)
 #define ETHERCAT_APP_PD_INPUT_BYTES       (ETHERCAT_APP_PDO_IMAGE_BYTES + ETHERCAT_APP_FSOE_PDO_BYTES)
 

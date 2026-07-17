@@ -55,8 +55,8 @@
                                     <listOptionValue value="SOC_AM261X"/>
                                     <listOptionValue value="OS_FREERTOS"/>
                                     <listOptionValue value="TIESC_APPLICATION=1"/>
-                                    <listOptionValue value="MAX_PD_INPUT_SIZE=0x28"/>
-                                    <listOptionValue value="MAX_PD_OUTPUT_SIZE=0x28"/>
+                                    <listOptionValue value="MAX_PD_INPUT_SIZE=0x2A"/>
+                                    <listOptionValue value="MAX_PD_OUTPUT_SIZE=0x2A"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MCPU.1920564963" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MCPU" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MCPU.cortex-r5" valueType="enumerated"/>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MFLOAT_ABI.1748827531" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MFLOAT_ABI" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MFLOAT_ABI.hard" valueType="enumerated"/>
@@ -113,7 +113,7 @@
                         </toolChain>
                     </folderInfo>
                     <sourceEntries>
-                        <entry excluding="src/EtherCAT/SSC/Src/SSC-AM2612.c|src/EtherCAT/tiescbsp.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+                        <entry excluding="src/EtherCAT/tiescbsp.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
                     </sourceEntries>
                 </configuration>
             </storageModule>
@@ -178,8 +178,8 @@
                                     <listOptionValue value="OS_FREERTOS"/>
                                     <listOptionValue value="_DEBUG_=1"/>
                                     <listOptionValue value="TIESC_APPLICATION=1"/>
-                                    <listOptionValue value="MAX_PD_INPUT_SIZE=0x28"/>
-                                    <listOptionValue value="MAX_PD_OUTPUT_SIZE=0x28"/>
+                                    <listOptionValue value="MAX_PD_INPUT_SIZE=0x2A"/>
+                                    <listOptionValue value="MAX_PD_OUTPUT_SIZE=0x2A"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MCPU.1263450349" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MCPU" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MCPU.cortex-r5" valueType="enumerated"/>
                                 <option id="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MFLOAT_ABI.1014445173" superClass="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MFLOAT_ABI" value="com.ti.ccstudio.buildDefinitions.TMS470_TICLANG_4.0.compilerID.MFLOAT_ABI.hard" valueType="enumerated"/>

@@ -1,0 +1,23 @@
+ESI PATCH REPORT
+================
+
+Date: 2026-07-17T15:53:42
+Input: C:\Projects\Am2612\AM2612_DualCore\Core0-freertos\src\EtherCAT\SSC\ESI_Patcher\SSC-AM2612.xml
+Configuration: C:\Projects\Am2612\AM2612_DualCore\Core0-freertos\src\EtherCAT\SSC\ESI_Patcher\esi_patch_config.yaml
+Detected encoding: utf-8-sig
+
+[PATCH-001] Correct ESC DPRAM size
+Status: APPLIED
+Change: Exact text replacement: '<DpramSize>60416</DpramSize>' -> '<DpramSize>28672</DpramSize>'
+
+[PATCH-002] Mark FSoE module as Functional-Safety
+Status: APPLIED
+Change: Exact text replacement: '<Type ModuleIdent="#x71000001">FSoE_Module</Type>\r\n\t\t\t\t<Name>FSoE_Module</Name>' -> '<Type ModuleClass="195" ModuleIdent="#x71000001" SRA_ParameterSupported="0">Functional-Safety</Type>\r\n\t\t\t\t<Name>Functional-Safety FSoE-Modul</Name>'
+
+[PATCH-003] Add TwinSAFE safety parameter mapping
+Status: APPLIED
+Change: Exact text replacement: '\t\t\t\t</TxPdo>\r\n\t\t\t\t<Profile>' -> '\t\t\t\t</TxPdo>\r\n\t\t\t\t<SafetyParaMapping SafetyConnNumber="1">\r\n\t\t\t\t\t<Index>#x1E00</Index>\r\n\t\t\t\t\t<Name>SafetyParameterSet</Name>\r\n\t\t\t\t\t<Entry>\r\n\t\t\t\t\t\t<Index>#x9001</Index>\r\n\t\t\t\t\t\t<SubIndex>7</SubIndex>\r\n\t\t\t\t\t\t<BitLen>16</BitLen>\r\n\t\t\t\t\t\t<Name>Communication Parameter Length</Name>\r\n\t\t\t\t\t\t<DataType>UINT</DataType>\r\n\t\t\t\t\t</Entry>\r\n\t\t\t\t\t<Entry>\r\n\t\t\t\t\t\t<Index>#x9001</Index>\r\n\t\t\t\t\t\t<SubIndex>4</SubIndex>\r\n\t\t\t\t\t\t<BitLen>16</BitLen>\r\n\t\t\t\t\t\t<Name>Watchdog Time</Name>\r\n\t\t\t\t\t\t<DataType>UINT</DataType>\r\n\t\t\t\t\t</Entry>\r\n\t\t\t\t\t<Entry>\r\n\t\t\t\t\t\t<Index>#x9001</Index>\r\n\t\t\t\t\t\t<SubIndex>8</SubIndex>\r\n\t\t\t\t\t\t<BitLen>16</BitLen>\r\n\t\t\t\t\t\t<Name>Application Parameter Length</Name>\r\n\t\t\t\t\t\t<DataType>UINT</DataType>\r\n\t\t\t\t\t</Entry>\r\n\t\t\t\t</SafetyParaMapping>\r\n\t\t\t\t<Profile>'
+
+Result: SUCCESS
+Input SHA-256: 2ab0da2506fb78deb32a9de0dd1d0d44ba7414d1cf61f6d97cd1d05e4a4a3574
+Output SHA-256: d63e6f8dc9fdfdc941fbd358d3d7a39024bba1564ac4e9a9b4311f8424c631e2
